@@ -301,8 +301,8 @@ void Estimator::processMeasurements() {
         }
       }
       while (!RTBuf.empty() && RTBuf.front().time < Headers[0]) {
-        printf("RTBuf.front is %f, Headers[0] is %f\n", RTBuf.front().time,
-               Headers[0]);
+        // printf("RTBuf.front is %f, Headers[0] is %f\n", RTBuf.front().time,
+        //        Headers[0]);
         RTBuf.pop();
       }
       if (!RTBuf.empty()) {

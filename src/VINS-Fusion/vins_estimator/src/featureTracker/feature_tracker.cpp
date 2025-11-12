@@ -260,6 +260,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     vector<cv::Point2f> render_points2D, cur_points2D;
     cv::Mat R, T;
     cv::Mat descriptors_cur, descriptors_render;
+    vector<cv::DMatch> good_matches;
 
     // 提取 ORB 特征
     orb->detectAndCompute(cur_img, cv::Mat(), keypoints_cur, descriptors_cur);
@@ -274,7 +275,6 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
       matcher.match(descriptors_cur, descriptors_render, matches);
 
       // 只保留优秀匹配
-      vector<cv::DMatch> good_matches;
       for (size_t i = 0; i < matches.size(); i++) {
         if (matches[i].distance <= 25)  // 30.0 是经验值
         {
@@ -297,41 +297,45 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
                       good_matches, matchImg, cv::Scalar::all(-1),
                       cv::Scalar::all(-1), vector<char>(),
                       cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-      cv::imshow("ORB Matches", matchImg);
-      cv::waitKey(1);  // 确保窗口刷新
+                      
+      // cv::imshow("ORB Matches", matchImg);
+      // cv::waitKey(1);  // 确保窗口刷新
     }
-    // double cx = 324.085, cy = 232.723,
-    //        fx = 603.955, fy = 603.125;// M2DGR的相机内参
-    double cx = 320, cy = 240,
-           fx = 613.082, fy = 526.842;// M2DGR的相机内参
-    // double cx = 385.611, cy = 505.740,
-    //        fx = 299.256, fy = 299.256;  // metacam的相机内参
 
-    cv::Mat K = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
-    // 深度图转 3D 点
-    int i = 0;
-    for (const auto p : render_points2D) {
-      double z = render.depth.at<float>(p.y, p.x);  // 假设深度图为 float 类型
-      if ( z > 0.1 && z < 30)                        // 深度值必须大于 0
-      {
-        double x = z * (p.x - cx) / fx;
-        double y = z * (p.y - cy) / fy;
-        // printf("x: %f, y: %f, z: %f\n", x, y, z);
-        render_points3D.push_back(cv::Point3f(x, y, z));
-        // 将当前帧中与渲染图像匹配的关键点添加到匹配点列表中
-        cur_pts_matched.push_back(cur_points2D[i]);
-      }
-      i++;
+    cv::Mat K;
+    if (m_camera[0]->modelType() == Camera::PINHOLE)
+    {
+        auto pinhole = dynamic_pointer_cast<PinholeCamera>(m_camera[0]);
+        double fx = pinhole->getParameters().fx();
+        double fy = pinhole->getParameters().fy();
+        double cx = pinhole->getParameters().cx();
+        double cy = pinhole->getParameters().cy();
+        K = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
+        int i = 0;
+        for (const auto p : render_points2D) {
+          double z = render.depth.at<float>(p.y, p.x);  // 假设深度图为 float 类型
+          if ( z > 0.1 && z < 30)                        // 深度值必须大于 0
+          {
+            double x = z * (p.x - cx) / fx;
+            double y = z * (p.y - cy) / fy;
+            render_points3D.push_back(cv::Point3f(x, y, z));
+            // 将当前帧中与渲染图像匹配的关键点添加到匹配点列表中
+            cur_pts_matched.push_back(cur_points2D[i]);
+          }
+          i++;
+        }
     }
-    // PnP 求解
+    // double cx = 324.085, cy = 232.723, fx = 603.955, fy = 603.125;// M2DGR的相机内参
+    // double cx = 320, cy = 240, fx = 613.082, fy = 526.842;// M2DGR的相机内参
+    // double cx = 385.611, cy = 505.740, fx = 299.256, fy = 299.256;  // metacam的相机内参
     std::vector<int> inliers;
-    if (render_points3D.size() > 15) {
+    if (render_points3D.size() > 15) { // PnP 求解
       try {
         // cv::solvePnPRansac(render_points3D, cur_pts_matched, K, cv::Mat(), R, T,
         //                    false, 150, 5.0, 0.8,
         //                    cv::Mat(),cv::SOLVEPNP_ITERATIVE);
         cv::solvePnPRansac(render_points3D, cur_pts_matched, K, cv::Mat(), R, T,
-              false, 150, 5.0, 0.95, inliers, cv::SOLVEPNP_ITERATIVE);
+              false, 100, 5.0, 0.95, inliers, cv::SOLVEPNP_ITERATIVE);
       } catch (const cv::Exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
       }
@@ -341,8 +345,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           cv::Rodrigues(R, R_matrix);  // 将旋转向量转换为旋转矩阵
           R = R_matrix;
         }
-
-        // 计算重投影误差
+        // 计算重投影的平均误差
         std::vector<cv::Point2f> projected_points;
         cv::projectPoints(render_points3D, R, T, K, cv::Mat(),
                           projected_points);
@@ -352,8 +355,19 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           total_error += cv::norm(cur_pts_matched[idx] - projected_points[idx]);
         }
         double mean_error = inliers.empty() ? 1e6 : total_error / inliers.size();
-        std::cout << "inliers: " << inliers.size()
-          << "  mean reprojection error (inliers): " << mean_error << std::endl;
+
+        /* ==========  report  ========== */
+        std::cout << "\033[1;32m"
+        << "┌------------ feature quality ------------┐\n"
+        << "│ Current       : " << std::setw(2) << keypoints_cur.size()    << "\n"
+        << "│ Rendered      : " << std::setw(2) << keypoints_render.size() << "\n"
+        << "│ good_matches  : " << std::setw(2) << good_matches.size()     << "\n"
+        << "│ Inliers       : " << std::setw(2) << inliers.size()          << "\n"
+        << "│ mean_error    : " << std::setprecision(3) << mean_error << " px │\n"
+        << "└-----------------------------------------┘\n"
+        << "\033[0m" << std::endl;
+        /* ============================================ */
+
         if (mean_error < 5.0 && inliers.size()>10) {
           if (R.rows == 3 && R.cols == 1) {
             cv::Mat R_matrix;
@@ -377,8 +391,6 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           Vector3d T_render = render.position;
           render.R = eigen_R.transpose() * R_render;
           render.T = R_render * (-eigen_R.transpose() * eigen_T) + T_render;
-          // std::cout << "R :" << render.R << std::endl;
-          // std::cout << "T :" << render.T << std::endl;
           render.USE_GS = true;
         }
       } else {
