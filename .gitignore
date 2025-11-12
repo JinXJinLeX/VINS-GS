@@ -1,0 +1,11 @@
+# 编译产物
+build/
+devel/
+*.o
+*.so
+*.a
+*.ply         # 如果数据也不要进仓库
+
+# 如果你想保留 data 目录但不跟踪里面文件
+src/splatting/data/*
+!src/splatting/data/.gitkeep

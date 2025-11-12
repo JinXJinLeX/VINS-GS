@@ -1,0 +1,8 @@
+conda activate VINS-Fusion
+source devel/setup.bash
+cd /media/seu/4000098A0009885C/datasaets/M2DGR-plus && rosbag play parking2.bag
+#roslaunch vins vins_rviz.launch 
+rosrun vins vins_node /home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS/3DGS.yaml
+roslaunch gaussian_map gaussian_map.launch
+#python gaussian_map.py -m /home/seu/xjl_work_space/gaussian-splatting/data/seu/3floor/output
+

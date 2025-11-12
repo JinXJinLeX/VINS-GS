@@ -1,0 +1,6 @@
+<launch>
+    <node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find vins)/../config/vins_rviz_config.rviz" />
+    <node pkg="topic_tools" type="throttle" name="camera_throttle" args="messages /camera/color/image_raw/compressed 11.0 /camera/color/image_raw1/compressed" output="screen" respawn="true"/>
+    <node pkg="image_transport" type="republish" name="republish" args="compressed in:=/camera/color/image_raw1 raw out:=/camera/color/image_raw" output="screen" respawn="true"/>
+
+</launch>

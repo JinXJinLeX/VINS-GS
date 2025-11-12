@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="rosbag" type="play" name="rosbag" args="-d 1 /home/seu/xjl_work_space/DROID-SLAM/data/seu/240307_1_2024-03-07-16-31-05.bag"/>
+    <node pkg="topic_tools" type="throttle" name="camera_throttle" args="messages /camera/color/image_raw/compressed 100.0 /camera/color/image_raw1/compressed" output="screen" respawn="true" />    
+    <node pkg="image_transport" type="republish" name="republish" args="compressed in:=/camera/color/image_raw1 raw out:=/camera/color/image_raw" output="screen" respawn="true" /> 
+    <node pkg="image_view" type="image_saver" name="image_saver" output="screen">
+        <remap from="image" to="/camera/color/image_raw"/>
+        <param name="filename_format" value="%f.jpg"/>
+    </node>
+</launch>    

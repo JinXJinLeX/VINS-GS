@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+
+  <!-- <param name="gaussian_map_path"       value="$(find gaussian_map)/gaussian_map"/> -->
+  <!-- <param name="use_cpu"           value="false" /> -->
+
+  <!-- Start yolov5 and ros wrapper -->
+  <!-- <node pkg="image_transport" type="republish" name="republish" args="compressed in:=/left_camera/image raw out:=/left_camera/image" output="screen" respawn="true" /> -->
+  <node pkg="gaussian_map" type="gaussian_map.py" name="gaussian_map_node" output="screen" >
+    <param name="skip_test"       value="false" />
+    <param name="quiet"       value="false" />
+  </node>
+  <node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find vins)/../config/vins_rviz_config.rviz" />
+
+    <!-- Odometry publisher node -->
+  <!-- <node pkg="gaussian_map" type="odometry_publisher.py" name="odometry_publisher_node" output="screen">
+  </node>-->
+    
+
+</launch>

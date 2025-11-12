@@ -1,0 +1,1 @@
+Namespace(data_device='cuda', depths='', eval=False, images='images', mask=False, model_path='./output/f221929b-c', resolution=-1, sh_degree=3, source_path='/home/seu/xjl_work_space/geo-gaussian-splatting', train_test_exp=False, white_background=False)

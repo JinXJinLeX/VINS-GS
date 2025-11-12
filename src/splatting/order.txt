@@ -1,0 +1,11 @@
+conda activate gaussian_splatting
+#训练命令 s是source d是depth m是model
+python train.py -s /home/seu/xjl_work_space/gaussian-splatting/data/seu/3f -d /home/seu/xjl_work_space/gaussian-splatting/data/seu/3f/depth/ -m /home/seu/xjl_work_space/gaussian-splatting/data/seu/3f/output/
+#可视化命令
+./SIBR_viewers/install/bin/SIBR_gaussianViewer_app -m /home/seu/xjl_work_space/gaussian-splatting/data/seu/3f/output/
+#深度预测命令
+conda activate priorda
+cd Depth-Anything-V2
+python run.py --encoder vitl --pred-only --grayscale --img-path /home/seu/xjl_work_space/gaussian-splatting/data/seu/3f/images --outdir output
+#根据colmap结果修正深度
+python utils/make_depth_scale.py --base_dir /home/seu/xjl_work_space/gaussian-splatting/data/seu/3f/sparse/0 --depths_dir /media/seu/4000098A0009885C/datasets/seu/metacam/2025-05-13_15-36-44/Colmap/depth

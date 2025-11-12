@@ -1,0 +1,6 @@
+<launch>
+    <node pkg="rosbag" type="play" name="rosbag" args="-d 1 /media/seu/4000098A0009885C/datasaets/M2DGR/hall_02.bag"/>
+     <node pkg="topic_tools" type="throttle" name="camera_throttle" args="messages /camera/color/image_raw/compressed 11.0 /camera/color/image_raw1/compressed" output="screen" respawn="true" />    
+     <node pkg="image_transport" type="republish" name="republish" args="compressed in:=/camera/color/image_raw1 raw out:=/camera/color/image_raw" output="screen" respawn="true" /> 
+    <node pkg="gaussian_map" type="image_saver.py" name="image_saver" output="screen"/>
+</launch>
