@@ -15,7 +15,8 @@ from diff_gaussian_rasterization import GaussianRasterizationSettings, GaussianR
 from scene.gaussian_model import GaussianModel
 from utils.sh_utils import eval_sh
 
-def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, separate_sh = False, override_color = None, use_trained_exp=False):
+# def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, separate_sh = False, override_color = None, use_trained_exp=False):
+def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, scaling_modifier = 1.0, separate_sh = False, override_color = None, use_trained_exp=False, training=False ):
     """
     Render the scene. 
     
@@ -135,5 +136,9 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
     # Visible_gaussian = rasterizer.markVisible(means3D)
     # vis_idx = torch.where(Visible_gaussian)[0]          # [V]
     # pc.update_sh_conf(vis_idx, (pc.get_xyz - viewpoint_camera.camera_center.repeat(pc.get_features.shape[0], 1))[vis_idx])
+    if(training):
+        Visible_gaussian = rasterizer.markVisible(means3D)
+        vis_idx = torch.where(Visible_gaussian)[0]          # [V]
+        pc.update_sh_conf(vis_idx, (pc.get_xyz - viewpoint_camera.camera_center.repeat(pc.get_features.shape[0], 1))[vis_idx])
 
     return out
