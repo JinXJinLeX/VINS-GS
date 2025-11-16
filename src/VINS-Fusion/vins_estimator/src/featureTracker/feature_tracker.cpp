@@ -359,6 +359,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           if(error < 1 && train_confidence[idx] > 0.5)
           {
             render.map_points.push_back(Vector3d(render_points3D[idx].x,render_points3D[idx].y,render_points3D[idx].z));
+            render.pro_points.push_back(Vector3d(cur_pts_matched[idx].x,cur_pts_matched[idx].y));
           }
         }
         double mean_error = inliers.empty() ? 1e6 : total_error / inliers.size();

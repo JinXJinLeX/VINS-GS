@@ -40,6 +40,7 @@ namespace GS
         Eigen::Vector3d T;
         bool USE_GS;
         std::vector<Eigen::Vector3d> map_points;
+        std::vector<Eigen::Vector2d> pro_points;
         // bool FIRST_GS;
     private:
     };
