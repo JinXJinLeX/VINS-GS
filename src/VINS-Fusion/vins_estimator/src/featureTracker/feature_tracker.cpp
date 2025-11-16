@@ -258,6 +258,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     vector<cv::KeyPoint> keypoints_cur, keypoints_render;
     vector<cv::Point3f> render_points3D;
     vector<cv::Point2f> render_points2D, cur_points2D;
+    vector<float> train_confidence;
     cv::Mat R, T;
     cv::Mat descriptors_cur, descriptors_render;
     vector<cv::DMatch> good_matches;
@@ -314,13 +315,16 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
         int i = 0;
         for (const auto p : render_points2D) {
           double z = render.depth.at<float>(p.y, p.x);  // 假设深度图为 float 类型
-          if ( z > 0.1 && z < 30)                        // 深度值必须大于 0
+          double conf = render.mask.at<float>(p.y, p.x);
+          double confidence = render.mask.at<float>(p.y,p.x);
+          if ( z > 0.1 && z < 30 && confidence > 0.5)                        // 深度值必须大于0, 置信度大于0.5
           {
             double x = z * (p.x - cx) / fx;
             double y = z * (p.y - cy) / fy;
             render_points3D.push_back(cv::Point3f(x, y, z));
             // 将当前帧中与渲染图像匹配的关键点添加到匹配点列表中
             cur_pts_matched.push_back(cur_points2D[i]);
+            train_confidence.push_back(confidence);
           }
           i++;
         }
@@ -330,10 +334,8 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     // double cx = 385.611, cy = 505.740, fx = 299.256, fy = 299.256;  // metacam的相机内参
     std::vector<int> inliers;
     if (render_points3D.size() > 15) { // PnP 求解
-      try {
-        // cv::solvePnPRansac(render_points3D, cur_pts_matched, K, cv::Mat(), R, T,
-        //                    false, 150, 5.0, 0.8,
-        //                    cv::Mat(),cv::SOLVEPNP_ITERATIVE);
+      try 
+      {
         cv::solvePnPRansac(render_points3D, cur_pts_matched, K, cv::Mat(), R, T,
               false, 100, 5.0, 0.95, inliers, cv::SOLVEPNP_ITERATIVE);
       } catch (const cv::Exception &e) {
@@ -352,18 +354,23 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
         double total_error = 0.0;
         for(int idx : inliers)
         {
-          total_error += cv::norm(cur_pts_matched[idx] - projected_points[idx]);
+          double error = cv::norm(cur_pts_matched[idx] - projected_points[idx]);
+          total_error += error;
+          if(error < 1 && train_confidence[idx] > 0.5)
+          {
+            render.map_points.push_back(Vector3d(render_points3D[idx].x,render_points3D[idx].y,render_points3D[idx].z));
+          }
         }
         double mean_error = inliers.empty() ? 1e6 : total_error / inliers.size();
 
-        /* ==========  report  ========== */
+        /* =============  report  ==================== */
         std::cout << "\033[1;32m"
         << "┌------------ feature quality ------------┐\n"
         << "│ Current       : " << std::setw(2) << keypoints_cur.size()    << "\n"
         << "│ Rendered      : " << std::setw(2) << keypoints_render.size() << "\n"
         << "│ good_matches  : " << std::setw(2) << good_matches.size()     << "\n"
         << "│ Inliers       : " << std::setw(2) << inliers.size()          << "\n"
-        << "│ mean_error    : " << std::setprecision(3) << mean_error << " px │\n"
+        << "│ mean_error    : " << std::setprecision(3) << mean_error << " px \n"
         << "└-----------------------------------------┘\n"
         << "\033[0m" << std::endl;
         /* ============================================ */
@@ -392,6 +399,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           render.R = eigen_R.transpose() * R_render;
           render.T = R_render * (-eigen_R.transpose() * eigen_T) + T_render;
           render.USE_GS = true;
+
         }
       } else {
         std::cout << "R or T is empty!" << std::endl;

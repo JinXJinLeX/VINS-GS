@@ -39,6 +39,7 @@ namespace GS
         Eigen::Matrix3d R;
         Eigen::Vector3d T;
         bool USE_GS;
+        std::vector<Eigen::Vector3d> map_points;
         // bool FIRST_GS;
     private:
     };
