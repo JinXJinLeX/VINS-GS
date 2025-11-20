@@ -147,7 +147,6 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
   map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
   // pair<double, pair<Eigen::Matrix3d, Eigen::Vector3d>> renderFrame;
   GS::GS_RENDER render_ = render;
-  GS::GS_RT GSRT;
   render_.USE_GS = false;
 
   TicToc featureTrackerTime;
@@ -156,10 +155,8 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
     if (render.time != 0) {
       featureFrame = featureTracker.trackImage(render_, t, _img, render_.rgb);
       if (render_.USE_GS == true) {
-        GSRT.R = render_.R;
-        GSRT.T = render_.T;
-        GSRT.time = render_.time;
-        RTBuf.push(GSRT);
+        GS::GS_FEATURE GS(render_);
+        GS_feature_Buf.push(GS);
       }
     } else
       featureFrame = featureTracker.trackImage(render_, t, _img);
@@ -294,50 +291,7 @@ void Estimator::processMeasurements() {
       }
       mProcess.lock();
 
-      // xjl
-      for (int i = 0; i < WINDOW_SIZE; i++) {
-        for (int j = 0; j < 7; j++) {
-          render_Pose[i][j] = 0;
-        }
-      }
-      while (!RTBuf.empty() && RTBuf.front().time < Headers[0]) {
-        // printf("RTBuf.front is %f, Headers[0] is %f\n", RTBuf.front().time,
-        //        Headers[0]);
-        RTBuf.pop();
-      }
-      if (!RTBuf.empty()) {
-        queue<GS::GS_RT> tempQueue;
-        tempQueue = RTBuf;
-        for (int i = 0; i <= WINDOW_SIZE; i++) {
-          while (!tempQueue.empty()) {
-            if (tempQueue.front().time < Headers[i]) {
-              // printf("\033[1;31m----Pop_GSRTBuf---\n"
-              //   "t: %f %f %f \033[0m ", tempQueue.front().T.x(),tempQueue.front().T.y(),tempQueue.front().T.z());
-              tempQueue.pop();
-            } else if (abs(tempQueue.front().time - Headers[i]) < 0.01) {
-              render_Pose[i][0] = tempQueue.front().T.x();
-              render_Pose[i][1] = tempQueue.front().T.y();
-              render_Pose[i][2] = tempQueue.front().T.z();
-              Eigen::Quaterniond q(tempQueue.front().R);
-              render_Pose[i][3] = q.x();
-              render_Pose[i][4] = q.y();
-              render_Pose[i][5] = q.z();
-              render_Pose[i][6] = q.w();
-              tempQueue.pop();
-              break;
-            } else {
-              for (int j = 0; j < 7; j++) {
-                render_Pose[i][j] = 0;
-              }
-              break;
-            }
-          }
-          // printf("\033[1;92m----Rendered_Pose----\n"
-          //   " t: %f %f %f  q: %f %f %f %f \033[0m\n",
-          //   render_Pose[i][0], render_Pose[i][1], render_Pose[i][2],
-          //   render_Pose[i][3], render_Pose[i][4], render_Pose[i][5], render_Pose[i][6]);
-        }
-      }
+      processGS();//prepare GS
       processImage(feature.second, feature.first);
 
       prevTime = curTime;
@@ -435,6 +389,61 @@ void Estimator::processIMU(double t, double dt,
   gyr_0 = angular_velocity;
 }
 
+void Estimator::clear_render()
+{
+  for (int i = 0; i < WINDOW_SIZE; i++) {
+    GS_pro[i].reset();
+    for (int j = 0; j < 7; j++) {
+      render_Pose[i][j] = 0;
+    }
+  }
+}
+
+void Estimator::processGS() { 
+  clear_render();
+  while (!GS_feature_Buf.empty() && GS_feature_Buf.front().time < Headers[0]) 
+  {
+    // ROS_INFO("GS_feature_Buf.front is %f, Headers[0] is %f\n", GS_feature_Buf.front().time, Headers[0]);
+    GS_feature_Buf.pop();
+  }
+  if (!GS_feature_Buf.empty()) 
+  {
+    queue<GS::GS_FEATURE> tempQueue;
+    tempQueue = GS_feature_Buf;
+    for (int i = 0; i <= WINDOW_SIZE; i++) 
+    {
+      while (!tempQueue.empty()) 
+      {
+        if (tempQueue.front().time < Headers[i]) 
+          tempQueue.pop();
+        else if (!tempQueue.empty() && abs(tempQueue.front().time - Headers[i]) < 0.01) 
+        {
+          Eigen::Quaterniond q(tempQueue.front().R);
+          render_Pose[i][0] = tempQueue.front().T.x();
+          render_Pose[i][1] = tempQueue.front().T.y();
+          render_Pose[i][2] = tempQueue.front().T.z();
+          render_Pose[i][3] = q.x();
+          render_Pose[i][4] = q.y();
+          render_Pose[i][5] = q.z();
+          render_Pose[i][6] = q.w();
+          GS_pro[i] = tempQueue.front();
+          GS_pro[i].USE_GS = true;
+          // printf("\033[1;92mGS_Pose- i: %d,  size: %d \033[0m\n",i,GS_pro[i].map_pts.size());
+          tempQueue.pop();
+          break;
+        } 
+        else 
+          break;
+      }
+      // printf("\033[1;31m----Pop_GSRTBuf---\n"
+      //   "t: %f %f %f \033[0m ", tempQueue.front().T.x(),tempQueue.front().T.y(),tempQueue.front().T.z());
+      // printf("\033[1;92m----Rendered_Pose----\n"
+      //   " t: %f %f %f  q: %f %f %f %f \033[0m\n",
+      //   render_Pose[i][0], render_Pose[i][1], render_Pose[i][2],
+      //   render_Pose[i][3], render_Pose[i][4], render_Pose[i][5], render_Pose[i][6]);
+    }
+  }
+}
 void Estimator::processImage(
     const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image,
     const double header) {
@@ -991,85 +1000,6 @@ bool Estimator::failureDetection() {
   }
   return false;
 }
-void Estimator::GSmapoptimization() {
-  int count = 0;
-  for (int i = 0; i < frame_count + 1; i++) {
-    if (render_Pose[i][0] != 0) count++;
-  }
-  if (count < 3) return;
-  vector2double();
-
-  ceres::Problem problem;
-  ceres::LossFunction *loss_function;
-  loss_function = new ceres::HuberLoss(1.0);
-  ceres::LocalParameterization *local_parameterization =
-      new ceres::QuaternionParameterization();
-  double t_array[frame_count + 1][3];
-  double q_array[frame_count + 1][4];
-  for (int i = 0; i < frame_count + 1; i++) {
-    t_array[i][0] = para_Pose[i][0];
-    t_array[i][1] = para_Pose[i][1];
-    t_array[i][2] = para_Pose[i][2];
-    q_array[i][0] = para_Pose[i][6];
-    q_array[i][1] = para_Pose[i][3];
-    q_array[i][2] = para_Pose[i][4];
-    q_array[i][3] = para_Pose[i][5];
-  }
-  for (int i = 0; i < frame_count + 1; i++) {
-    problem.AddParameterBlock(q_array[i], 4, local_parameterization);
-    problem.AddParameterBlock(t_array[i], 3);
-  }
-  for (int i = 2; i < frame_count + 1; i++) {
-    for (int j = 1; j < 2; j++) {
-      if (i - j >= 0) {
-        Vector3d relative_t(t_array[i][0] - t_array[i - j][0],
-                            t_array[i][1] - t_array[i - j][1],
-                            t_array[i][2] - t_array[i - j][2]);
-        Quaterniond q_i_j = Quaterniond(q_array[i - j][0], q_array[i - j][1],
-                                        q_array[i - j][2], q_array[i - j][3]);
-        Quaterniond q_i = Quaterniond(q_array[i][0], q_array[i][1],
-                                      q_array[i][2], q_array[i][3]);
-        relative_t = q_i_j.inverse() * relative_t;
-        Quaterniond relative_q = q_i_j.inverse() * q_i;
-        ceres::CostFunction *vo_function = RelativeRTError::Create(
-            relative_t.x(), relative_t.y(), relative_t.z(), relative_q.w(),
-            relative_q.x(), relative_q.y(), relative_q.z(), 0.1, 0.01);
-        problem.AddResidualBlock(vo_function, NULL, q_array[i - j],
-                                 t_array[i - j], q_array[i], t_array[i]);
-      }
-    }
-  }
-
-  // xjl 20250219 GS_USAGE
-  for (int i = 0; i < WINDOW_SIZE; i++) {
-    if (render_Pose[i][0] != 0)
-      problem.AddResidualBlock(new ceres::AutoDiffCostFunction<GSFactor, 3, 3>(
-                                   new GSFactor(t_array[i], render_Pose[i])),
-                               loss_function, t_array[i]);
-  }
-
-  ceres::Solver::Options options;
-
-  options.linear_solver_type = ceres::DENSE_SCHUR;
-  options.trust_region_strategy_type = ceres::DOGLEG;
-  options.max_num_iterations = NUM_ITERATIONS;
-  if (marginalization_flag == MARGIN_OLD)
-    options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
-  else
-    options.max_solver_time_in_seconds = SOLVER_TIME;
-  TicToc t_solver;
-  ceres::Solver::Summary summary;
-  ceres::Solve(options, &problem, &summary);
-
-  for (int i = 0; i <= WINDOW_SIZE; i++) {
-    Rs[i] =
-        Quaterniond(q_array[i][0], q_array[i][1], q_array[i][2], q_array[i][3])
-            .normalized()
-            .toRotationMatrix();
-
-    Ps[i] = Vector3d(t_array[i][0], t_array[i][1], t_array[i][2]);
-  }
-}
 
 void Estimator::optimization() {
   TicToc t_whole, t_prepare;
@@ -1126,21 +1056,37 @@ void Estimator::optimization() {
                                para_SpeedBias[j]);
     }
   }
-  // xjl GS factor
+  // xjl ====================== GS factor ======================
   int count = 0;
-  for (int i = 0; i < frame_count; i++) {
+  for (int i = 0; i <= frame_count; i++) {
     if (render_Pose[i][0] != 0) count++;
   }
   if (count > 2) {
-    for (int i = 0; i < frame_count; i++) {
-      if (render_Pose[i][0] != 0)
+    for (int i = 0; i <= frame_count; i++) {
+      if (render_Pose[i][0] != 0 )//&& GS_pro[i].USE_GS==true
+      {
+        // GS R|T factor
         problem.AddResidualBlock(
             new ceres::AutoDiffCostFunction<GS_Factor, 3, 7>(
                 new GS_Factor(para_Pose[i], render_Pose[i])),
             loss_function, para_Pose[i]);
+        // GS projection factor
+        if(!GS_pro[i].map_pts.empty())
+        {
+          int num = GS_pro[i].map_pts.size();
+          // cout<<"i: "<< i <<"  map_pts_num: "<< num <<endl;
+          for(int j = 0; j < num; j++)
+          { 
+            // cout<<"j: "<< j <<"  map_pts: "<< GS_pro[i].map_pts[j] <<"  pro_pts: "<< GS_pro[i].pro_pts[j] <<endl;
+            GSProjectionFactor* GS_Projection_Factor = new GSProjectionFactor(
+                  GS_pro[i].map_pts[j], GS_pro[i].pro_pts[j],GS_pro[i].conf_points[j]);
+            problem.AddResidualBlock(GS_Projection_Factor, loss_function, para_Pose[i],para_Ex_Pose[0]);
+          }
+        }
+      }
     }
   }
-  
+  //     ====================== GS factor ======================
   int f_m_cnt = 0;
   int feature_index = -1;
   for (auto &it_per_id : f_manager.feature) {

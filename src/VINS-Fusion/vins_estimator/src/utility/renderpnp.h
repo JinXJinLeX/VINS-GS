@@ -30,6 +30,7 @@ namespace GS
     public:
         GS_RENDER();
         GS_RENDER(double t, double pose[7], cv::Mat &img1, cv::Mat &img2, cv::Mat &img3);
+        Eigen::Vector3d reprojection(double x, double y, double z);
         double time;
         Eigen::Vector3d position;
         Eigen::Quaterniond orientation;
@@ -40,16 +41,23 @@ namespace GS
         Eigen::Vector3d T;
         bool USE_GS;
         std::vector<Eigen::Vector3d> map_points;
-        std::vector<Eigen::Vector2d> pro_points;
-        // bool FIRST_GS;
+        std::vector<Eigen::Vector3d> pro_points;
+        std::vector<double> conf_points;
     private:
     };
-    class GS_RT
+    class GS_FEATURE
     {
     public:
+        GS_FEATURE();
+        GS_FEATURE(GS_RENDER GS_render);
+        void reset();
         double time;
         Eigen::Matrix3d R;
         Eigen::Vector3d T;
+        std::vector<Eigen::Vector3d> map_pts;
+        std::vector<Eigen::Vector3d> pro_pts;
+        std::vector<double> conf_points;
+        bool USE_GS;
     };
 }
 

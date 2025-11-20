@@ -244,14 +244,14 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     pnp_3d_pts.clear();
     cur_render_pts.clear();
     cv::Ptr<cv::ORB> orb =
-        cv::ORB::create(600,   // nfeatures: 最大特征点数
+        cv::ORB::create(800,   // nfeatures: 最大特征点数
                         1.3f,  // scaleFactor: 图像金字塔的尺度因子
                         9,    // nlevels: 金字塔层数
                         15,    // edgeThreshold: 边缘阈值
                         0,     // firstLevel: 金字塔的首层索引
                         2,     // WTA_K: 每对特征点之间的比较数
                         cv::ORB::HARRIS_SCORE,  // scoreType: 特征评分方法
-                        31  // patchSize: 每个特征点的像素补丁大小
+                        27  // patchSize: 每个特征点的像素补丁大小
         );
 
     // 关键点和描述符
@@ -277,7 +277,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
 
       // 只保留优秀匹配
       for (size_t i = 0; i < matches.size(); i++) {
-        if (matches[i].distance <= 25)  // 30.0 是经验值
+        if (matches[i].distance <= 30)  // 30.0 是经验值
         {
           good_matches.push_back(matches[i]);
         }
@@ -304,20 +304,20 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     }
 
     cv::Mat K;
+    double fx,fy,cx,cy;
     if (m_camera[0]->modelType() == Camera::PINHOLE)
     {
-        auto pinhole = dynamic_pointer_cast<PinholeCamera>(m_camera[0]);
-        double fx = pinhole->getParameters().fx();
-        double fy = pinhole->getParameters().fy();
-        double cx = pinhole->getParameters().cx();
-        double cy = pinhole->getParameters().cy();
-        K = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
-        int i = 0;
-        for (const auto p : render_points2D) {
+      auto pinhole = dynamic_pointer_cast<PinholeCamera>(m_camera[0]);
+      fx = pinhole->getParameters().fx();
+      fy = pinhole->getParameters().fy();
+      cx = pinhole->getParameters().cx();
+      cy = pinhole->getParameters().cy();
+      K = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
+        for (int i = 0; const auto p : render_points2D) {
           double z = render.depth.at<float>(p.y, p.x);  // 假设深度图为 float 类型
           double conf = render.mask.at<float>(p.y, p.x);
           double confidence = render.mask.at<float>(p.y,p.x);
-          if ( z > 0.1 && z < 30 && confidence > 0.5)                        // 深度值必须大于0, 置信度大于0.5
+          if ( z > 0.1 && z < 30)                        // 深度值必须大于0, 置信度大于0.5
           {
             double x = z * (p.x - cx) / fx;
             double y = z * (p.y - cy) / fy;
@@ -337,16 +337,11 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
       try 
       {
         cv::solvePnPRansac(render_points3D, cur_pts_matched, K, cv::Mat(), R, T,
-              false, 100, 5.0, 0.95, inliers, cv::SOLVEPNP_ITERATIVE);
+              false, 100, 5.0, 0.9, inliers, cv::SOLVEPNP_ITERATIVE);
       } catch (const cv::Exception &e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        // std::cerr << "Error: " << e.what() << std::endl;
       }
       if (!R.empty() && !T.empty()) {
-        if (R.rows == 3 && R.cols == 1) {
-          cv::Mat R_matrix;
-          cv::Rodrigues(R, R_matrix);  // 将旋转向量转换为旋转矩阵
-          R = R_matrix;
-        }
         // 计算重投影的平均误差
         std::vector<cv::Point2f> projected_points;
         cv::projectPoints(render_points3D, R, T, K, cv::Mat(),
@@ -356,14 +351,14 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
         {
           double error = cv::norm(cur_pts_matched[idx] - projected_points[idx]);
           total_error += error;
-          if(error < 1 && train_confidence[idx] > 0.5)
+          if(error < 1.5 && train_confidence[idx] > 0.3)
           {
-            render.map_points.push_back(Vector3d(render_points3D[idx].x,render_points3D[idx].y,render_points3D[idx].z));
-            render.pro_points.push_back(Vector3d(cur_pts_matched[idx].x,cur_pts_matched[idx].y));
+            render.map_points.push_back(render.reprojection(render_points3D[idx].x,render_points3D[idx].y,render_points3D[idx].z));
+            render.pro_points.push_back(Vector3d((cur_pts_matched[idx].x-cx)/fx,(cur_pts_matched[idx].y-cy)/fy,1));
+            render.conf_points.push_back(train_confidence[idx]);
           }
         }
         double mean_error = inliers.empty() ? 1e6 : total_error / inliers.size();
-
         /* =============  report  ==================== */
         std::cout << "\033[1;32m"
         << "┌------------ feature quality ------------┐\n"
@@ -375,24 +370,19 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
         << "└-----------------------------------------┘\n"
         << "\033[0m" << std::endl;
         /* ============================================ */
-
-        if (mean_error < 5.0 && inliers.size()>10) {
+        if (mean_error < 3.0 && inliers.size()>10) {
+          cv::Mat R_matrix;
           if (R.rows == 3 && R.cols == 1) {
-            cv::Mat R_matrix;
-            cv::Rodrigues(R, R_matrix);  // 如果 R 是旋转向量，先转换为旋转矩阵
-            R = R_matrix;                // 更新 R 为旋转矩阵
+            cv::Rodrigues(R, R_matrix);  // 将旋转向量转换为旋转矩阵
           }
-          // 转换为 Eigen::Matrix3d
+          // 转换为 Eigen::Matrix3d, Eigen::Vector3d
           Eigen::Matrix3d eigen_R;
-          for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-              eigen_R(i, j) = R.at<double>(i, j);
-            }
-          }
-          // 转换为 Eigen::Vector3d
           Eigen::Vector3d eigen_T;
           for (int i = 0; i < 3; i++) {
             eigen_T(i) = T.at<double>(i, 0);
+            for (int j = 0; j < 3; j++) {
+              eigen_R(i, j) = R_matrix.at<double>(i, j);
+            }
           }
           // 输出转换结果
           Matrix3d R_render = render.orientation.toRotationMatrix();
@@ -400,10 +390,9 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           render.R = eigen_R.transpose() * R_render;
           render.T = R_render * (-eigen_R.transpose() * eigen_T) + T_render;
           render.USE_GS = true;
-
         }
       } else {
-        std::cout << "R or T is empty!" << std::endl;
+        ROS_DEBUG("R or T is empty!");
       }
     }
   }

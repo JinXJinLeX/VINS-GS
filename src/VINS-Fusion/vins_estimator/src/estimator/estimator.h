@@ -69,6 +69,8 @@ class Estimator {
   // render_image = GS::GS_RENDER());
   std::vector<nav_msgs::Odometry> loadOdometryFromTumFile(const std::string &file_path);
   void GSmapoptimization();
+  void processGS();
+  void clear_render();
 
   // internal
   void clearState();
@@ -194,5 +196,6 @@ class Estimator {
   bool USE_GS;
   double render_Pose[WINDOW_SIZE + 1][SIZE_POSE];
   // queue<GS::GS_RENDER> renderBuf;
-  queue<GS::GS_RT> RTBuf;
+  queue<GS::GS_FEATURE> GS_feature_Buf;
+  GS::GS_FEATURE GS_pro[(WINDOW_SIZE + 1)];
 };

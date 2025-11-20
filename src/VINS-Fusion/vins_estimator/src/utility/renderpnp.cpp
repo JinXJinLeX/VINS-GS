@@ -27,3 +27,40 @@ GS::GS_RENDER::GS_RENDER()
     R = Eigen::Matrix3d::Ones();
     T = Eigen::Vector3d::Zero();
 }
+Eigen::Vector3d GS::GS_RENDER::reprojection(double x, double y, double z)
+{
+    Eigen::Matrix3d R_c2w = orientation.toRotationMatrix();
+    Eigen::Vector3d t_c2w = position;
+    Eigen::Vector3d P_c = Eigen::Vector3d(x,y,z);
+    Eigen::Vector3d P_w = R_c2w * P_c + t_c2w;
+    return P_w;
+}
+
+GS::GS_FEATURE::GS_FEATURE(GS_RENDER GS_render)
+{
+    R = GS_render.R;
+    T = GS_render.T;
+    map_pts = GS_render.map_points;
+    pro_pts = GS_render.pro_points;
+    time = GS_render.time;
+    USE_GS = GS_render.USE_GS;
+    conf_points = GS_render.conf_points;
+}
+
+GS::GS_FEATURE::GS_FEATURE()
+{
+    R = Eigen::Matrix3d::Ones();
+    T = Eigen::Vector3d::Zero();
+    time = 0;
+    USE_GS = false;
+}
+
+void GS::GS_FEATURE::reset()
+{
+    R.setIdentity();
+    T.setZero();
+    time = 0.0;
+    USE_GS = false;
+    map_pts.clear();
+    pro_pts.clear();
+}
