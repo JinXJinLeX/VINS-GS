@@ -1,6 +1,6 @@
 #include "GS_factor.h"
 
-Eigen::Matrix2d GSProjectionFactor::sqrt_info=FOCAL_LENGTH / 1.0 * Eigen::Matrix2d::Identity();
+Eigen::Matrix2d GSProjectionFactor::sqrt_info=FOCAL_LENGTH / 5.0 * Eigen::Matrix2d::Identity();
 
 GSProjectionFactor::GSProjectionFactor(const Eigen::Vector3d &_pts_3D, const Eigen::Vector3d &_pts_2D, const double &_pts_conf)
 {

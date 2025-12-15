@@ -105,8 +105,22 @@ void sync_process() {
           // printf("find img0 and img1\n");
         }
       }
+      if (!pnpimage_buf.empty()) {
+        pnp_image = pnpimage_buf.front();
+        pnpimage_buf.pop();
+      }
       m_buf.unlock();
-      if (!image0.empty()) estimator.inputImage(time, image0, image1);
+      if (!image0.empty())
+      {
+        if (pnp_image.time == 0) 
+        {
+          estimator.inputImage(time, image0, image1);
+        }
+        else
+        {
+          estimator.inputImage(time, image0, image1, pnp_image);
+        }
+      }
     } else {
       cv::Mat image;
       std_msgs::Header header;
@@ -118,29 +132,26 @@ void sync_process() {
         image = getImageFromMsg(img0_buf.front());
         img0_buf.pop();
       }
+
       // xjl
-      // while (!pnpimage_buf.empty() && (time - pnpimage_buf.front().time >
-      // 0.5))
-      //     pnpimage_buf.pop();
       if (!pnpimage_buf.empty()) {
         pnp_image = pnpimage_buf.front();
-        // printf("add pnp image!!!!%f", pnp_image.time);
+        // printf("have pnp image!!!!%f\n", pnp_image.time);
         pnpimage_buf.pop();
       }
       m_buf.unlock();
       if (!image.empty()) {
-        // printf("add pnp image!!!!%f", pnp_image.time);
+        // printf("add pnp image!!!!%f\n", pnp_image.time);
         if (pnp_image.time == 0) {
           estimator.inputImage(time, image);
         } else {
           estimator.inputImage(time, image, cv::Mat(), pnp_image);
-        //   printf("have pnp image to match!!!");
-        //   cv::imshow("initial", pnp_image.rgb);
-        //   cv::waitKey(1);
+          // printf("have pnp image to match!!!\n");
+          // cv::imshow("initial", pnp_image.rgb);
+          // cv::waitKey(0.1);
         }
       }
     }
-
     std::chrono::milliseconds dura(2);
     std::this_thread::sleep_for(dura);
   }
@@ -227,6 +238,7 @@ void gaussian_callback(
   ROS_DEBUG("Subscribed to /render");
 
   geometry_msgs::Pose pose = render_msg->Pose;
+  double GS_time = render_msg->RGBimage.header.stamp.toSec();
   sensor_msgs::ImageConstPtr rgb_msg =
       boost::make_shared<sensor_msgs::Image>(render_msg->RGBimage);
   cv::Mat rgb_image = cv_bridge::toCvShare(rgb_msg, "bgr8")->image;
@@ -246,8 +258,8 @@ void gaussian_callback(
   position[5] = pose.orientation.z;
   position[6] = pose.orientation.w;
   GS::GS_RENDER data_map =
-      GS::GS_RENDER(render_msg->RGBimage.header.stamp.toSec(), position,
-                    rgb_image, depth_image, conf_image);
+      GS::GS_RENDER(GS_time, position, rgb_image, depth_image, conf_image);
+  printf("get gaussian rendering --time:%f\n",GS_time);
   m_buf.lock();
   pnpimage_buf.push(data_map);
   m_buf.unlock();

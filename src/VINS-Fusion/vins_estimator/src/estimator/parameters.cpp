@@ -48,6 +48,7 @@ int FLOW_BACK;
 // xjl
 int GAUSSIAN_MAP;
 double MAP_YAW;
+Eigen::Vector3d MAP_POSITION;
 std::string GROUNDTRUTH;
 
 template <typename T>
@@ -94,6 +95,11 @@ void readParameters(std::string config_file)
     GAUSSIAN_MAP = fsSettings["gaussian_map"];
     MAP_YAW = fsSettings["map_yaw"];
     fsSettings["groundtruth_file"] >> GROUNDTRUTH;
+    double map_x, map_y, map_z;
+    map_x = fsSettings["map_initial_position_x"];
+    map_y = fsSettings["map_initial_position_y"];
+    map_z = fsSettings["map_initial_position_z"];
+    MAP_POSITION =Eigen::Vector3d{map_x, map_y, map_z};
 
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
 

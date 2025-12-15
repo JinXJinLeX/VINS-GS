@@ -299,8 +299,8 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
                       cv::Scalar::all(-1), vector<char>(),
                       cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
                       
-      // cv::imshow("ORB Matches", matchImg);
-      // cv::waitKey(1);  // 确保窗口刷新
+      cv::imshow("ORB Matches", matchImg);
+      cv::waitKey(1);  // 确保窗口刷新
     }
 
     cv::Mat K;
@@ -333,7 +333,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     // double cx = 320, cy = 240, fx = 613.082, fy = 526.842;// M2DGR的相机内参
     // double cx = 385.611, cy = 505.740, fx = 299.256, fy = 299.256;  // metacam的相机内参
     std::vector<int> inliers;
-    if (render_points3D.size() > 15) { // PnP 求解
+    if (render_points3D.size() > 20) { // PnP 求解
       try 
       {
         cv::solvePnPRansac(render_points3D, cur_pts_matched, K, cv::Mat(), R, T,
@@ -359,18 +359,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           }
         }
         double mean_error = inliers.empty() ? 1e6 : total_error / inliers.size();
-        /* =============  report  ==================== */
-        std::cout << "\033[1;32m"
-        << "┌------------ feature quality ------------┐\n"
-        << "│ Current       : " << std::setw(2) << keypoints_cur.size()    << "\n"
-        << "│ Rendered      : " << std::setw(2) << keypoints_render.size() << "\n"
-        << "│ good_matches  : " << std::setw(2) << good_matches.size()     << "\n"
-        << "│ Inliers       : " << std::setw(2) << inliers.size()          << "\n"
-        << "│ mean_error    : " << std::setprecision(3) << mean_error << " px \n"
-        << "└-----------------------------------------┘\n"
-        << "\033[0m" << std::endl;
-        /* ============================================ */
-        if (mean_error < 3.0 && inliers.size()>10) {
+        if (mean_error < 3.0 && inliers.size() > cur_pts_matched.size()/2) {
           cv::Mat R_matrix;
           if (R.rows == 3 && R.cols == 1) {
             cv::Rodrigues(R, R_matrix);  // 将旋转向量转换为旋转矩阵
@@ -390,6 +379,19 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           render.R = eigen_R.transpose() * R_render;
           render.T = R_render * (-eigen_R.transpose() * eigen_T) + T_render;
           render.USE_GS = true;
+          /* =============  report  ==================== */
+          std::cout << "\033[1;32m"
+          << "┌------------ feature quality ------------┐\n"
+          << "│ Time          : " << std::fixed   << std::setprecision(6) << render.time     << "\n"
+          << "│ Current       : " << std::setw(2) << keypoints_cur.size()    << "\n"
+          << "│ Rendered      : " << std::setw(2) << keypoints_render.size() << "\n"
+          << "│ good_matches  : " << std::setw(2) << good_matches.size()     << "\n"
+          << "│ Inliers       : " << std::setw(2) << inliers.size()          << "\n"
+          << "│ mean_error    : " << std::setprecision(3) << mean_error << " px \n"
+          << "│ GS_T          : " << std::setprecision(3) << render.T.transpose()<<"\n"
+          << "└-----------------------------------------┘\n"
+          << "\033[0m" << std::endl;
+          /* ============================================ */
         }
       } else {
         ROS_DEBUG("R or T is empty!");

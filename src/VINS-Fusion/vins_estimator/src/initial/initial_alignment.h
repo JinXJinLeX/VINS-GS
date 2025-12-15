@@ -17,6 +17,7 @@
 #include <ros/ros.h>
 #include <map>
 #include "../estimator/feature_manager.h"
+#include "../utility/renderpnp.h"
 
 using namespace Eigen;
 using namespace std;
@@ -37,4 +38,4 @@ class ImageFrame
         bool is_key_frame;
 };
 void solveGyroscopeBias(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs);
-bool VisualIMUAlignment(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs, Vector3d &g, VectorXd &x);
+bool VisualIMUAlignment(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs, Vector3d &g, VectorXd &x, GS::GS_FEATURE* GS_pro);

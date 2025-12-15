@@ -42,7 +42,7 @@ bridge = CvBridge()  # CvBridge 用于 OpenCV 和 ROS Image 消息转换
 # --------------- 读取 camera.yaml ---------------
 import yaml
 
-yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS/camera.yaml"
+yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_kasit/camera.yaml"
 # yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_312/camera.yaml"
 with open(yaml_path, 'r') as f:
     cfg = yaml.safe_load(f)
@@ -86,6 +86,8 @@ def odometry_callback(msg, GaussianModel, pipeline, train_test_exp, separate_sh)
     orientation = msg.pose.pose.orientation
     quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
     # print("quaternion Vector:", quaternion)
+
+    
     #########################xjl M2DGR数据集转换旋转矩阵
     rotation_matrix = tf_trans.quaternion_matrix(quaternion)[:3, :3]
     # print("Rotation Matrix:", rotation_matrix)
@@ -261,7 +263,7 @@ def main():
     args = get_combined_args(parser)
     
     gaussians = GaussianModel(model.extract(args).sh_degree)
-    Scene(model.extract(args), gaussians, load_iteration=30000, shuffle=False)
+    Scene(model.extract(args), gaussians, load_iteration=90000, shuffle=False)
 
     # 在订阅之前初始化
     safe_state(args.quiet)
@@ -273,12 +275,8 @@ def main():
     # 初始化图像发布器
     # global image_pub, depth_pub
     global image_with_pose_pub
-    # image_pub = rospy.Publisher('/rendered_image', Image, queue_size=50)  # 创建图像话题
-    # depth_pub = rospy.Publisher('/rendered_depth', Image, queue_size=50)  # 创建图像话题
-    image_with_pose_pub = rospy.Publisher('/render',  image_with_pose, queue_size = 100)
 
-    # 订阅图像
-    # rospy.Subscriber('/rendered_image', Image, image_callback)
+    image_with_pose_pub = rospy.Publisher('/render',  image_with_pose, queue_size = 100)
 
     # 保持节点持续运行
     rospy.spin()
