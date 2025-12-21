@@ -128,32 +128,6 @@ void RefineGravity(map<double, ImageFrame>& all_image_frame, Vector3d& g,
       A.block<6, 3>(i * 3, n_state - 3) += r_A.topRightCorner<6, 3>();
       A.block<3, 6>(n_state - 3, i * 3) += r_A.bottomLeftCorner<3, 6>();
     }
-    /* ======== 把先验 pose 约束加进来 ======== */
-    // for (const auto& pp : gPosePriors) {
-    //   auto it = all_image_frame.find(pp.first);
-    //   if (it == all_image_frame.end()) continue;
-    //   int idx = std::distance(all_image_frame.begin(), it);
-    //   const double wp = pp.second.wp;
-    //   const double wR = pp.second.wR;
-
-    //   /* 位置 */
-    //   MatrixXd Jp(3, n_state);
-    //   Jp.setZero();
-    //   Jp.block<3, 3>(0, idx * 3) = -Matrix3d::Identity();
-    //   Jp.block<3, 1>(0, n_state - 1) = -it->second.R * TIC[0];
-    //   Vector3d rp = (pp.second.p - it->second.T) * wp;
-    //   A += Jp.transpose() * Jp * wp * wp;
-    //   b += Jp.transpose() * rp * wp * wp;
-
-    //   /* 姿态 */
-    //   MatrixXd JR(3, n_state);
-    //   JR.setZero();
-    //   JR.block<3, 3>(0, idx * 3) = -Matrix3d::Identity();
-    //   Matrix3d dR = pp.second.R.transpose() * it->second.R;
-    //   Vector3d rR = 2 * Eigen::Quaterniond(dR).vec() * wR;
-    //   A += JR.transpose() * JR * wR * wR;
-    //   b += JR.transpose() * rR * wR * wR;
-    // }
 
     A = A * 1000.0;
     b = b * 1000.0;
@@ -166,7 +140,24 @@ void RefineGravity(map<double, ImageFrame>& all_image_frame, Vector3d& g,
 }
 
 bool LinearAlignment(map<double, ImageFrame>& all_image_frame, Vector3d& g,
-                     VectorXd& x, GS::GS_FEATURE* GS_pro) {
+                     VectorXd& x, GS::GS_FEATURE* GS_pro) 
+{
+  vector<int> gs_idx;   // GS_pro 里的索引 k
+  vector<map<double, ImageFrame>::iterator> gs_it;  // 对应的 frame
+  
+  for (int k = 0; k < WINDOW_SIZE; k++) {
+    if (!GS_pro[k].USE_GS)
+      continue;
+  
+    auto it = all_image_frame.find(GS_pro[k].time);
+    if (it == all_image_frame.end())
+      continue;
+  
+    gs_idx.push_back(k);
+    gs_it.push_back(it);
+  }
+  
+
   int all_frame_count = all_image_frame.size();
   int n_state = all_frame_count * 3 + 3 + 1;
 
@@ -223,31 +214,55 @@ bool LinearAlignment(map<double, ImageFrame>& all_image_frame, Vector3d& g,
 
     A.block<6, 4>(i * 3, n_state - 4) += r_A.topRightCorner<6, 4>();
     A.block<4, 6>(n_state - 4, i * 3) += r_A.bottomLeftCorner<4, 6>();
-    /* ======== 把先验 pose 约束加进来 ======== */
-    // if(GS_pro[i].USE_GS && GS_pro[i].time!=0)
-    // {          // 第 i 帧有外部先验
-    //     /* --- 1. 位置约束 --- */
-    //     MatrixXd Jp(3, n_state);
-    //     Jp.setZero();
-    //     Jp.block<3, 3>(0, i * 3) = -Matrix3d::Identity();          // 对速度增量
-    //     Jp.block<3, 1>(0, n_state - 1) =
-    //         -frame_i->second.R * TIC[0] / 100.0;                   // 对尺度（注意前面/100）
-
-    //     Vector3d rp = (GS_pro[i].T - frame_i->second.T) / 100.0;   // 先验 T 与视觉 SfM T 的差
-    //     A += Jp.transpose() * Jp;
-    //     b += Jp.transpose() * rp;
-
-    //     /* --- 2. 姿态约束 --- */
-    //     MatrixXd JR(3, n_state);
-    //     JR.setZero();
-    //     JR.block<3, 3>(0, i * 3) = -Matrix3d::Identity();          // 对速度增量（小角度）
-
-    //     Matrix3d dR = GS_pro[i].R.transpose() * frame_i->second.R;
-    //     Vector3d rR = 2 * Eigen::Quaterniond(dR).vec();            // 四元数误差矢量部分
-    //     A += JR.transpose() * JR;
-    //     b += JR.transpose() * rR;
-    // }
+    
   }
+  // ===== GS - SfM 单帧绝对位置约束 =====
+  // for (size_t n = 0; n < gs_idx.size(); n++) {
+  //   int k = gs_idx[n];
+  //   auto it = gs_it[n];
+  
+  //   Vector3d T_sfm = it->second.T;
+  //   Vector3d T_gs  = GS_pro[k].T;
+  
+  //   if (T_sfm.norm() < 1e-6)
+  //     continue;
+  
+  //   MatrixXd Jp(3, n_state);
+  //   Jp.setZero();
+  //   Jp.block<3,1>(0, n_state - 1) = T_sfm / 100.0;  // 对 scale
+  
+  //   Vector3d rp = T_gs;  // s * T_sfm ≈ T_gs
+  
+  //   double w = 2.5;
+  //   A += w * Jp.transpose() * Jp;
+  //   b += w * Jp.transpose() * rp;
+  // }
+  // // ===== GS - GS 相对位移约束 =====
+  // for (size_t n = 0; n + 1 < gs_idx.size(); n++) {
+  //   int k0 = gs_idx[n];
+  //   int k1 = gs_idx[n + 1];
+  
+  //   auto it0 = gs_it[n];
+  //   auto it1 = gs_it[n + 1];
+  
+  //   Vector3d dT_sfm = it1->second.T - it0->second.T;
+  //   Vector3d dT_gs  = GS_pro[k1].T - GS_pro[k0].T;
+  
+  //   if (dT_sfm.norm() < 1e-6 || dT_gs.norm() < 1e-3)
+  //     continue;
+  
+  //   MatrixXd Jp(3, n_state);
+  //   Jp.setZero();
+  //   Jp.block<3,1>(0, n_state - 1) = dT_sfm / 100.0;
+  
+  //   Vector3d rp = dT_gs;
+  
+  //   double w = 1.0;  // 比单帧更强
+  //   A += w * Jp.transpose() * Jp;
+  //   b += w * Jp.transpose() * rp;
+  // }
+  
+
   A = A * 1000.0;
   b = b * 1000.0;
   x = A.ldlt().solve(b);

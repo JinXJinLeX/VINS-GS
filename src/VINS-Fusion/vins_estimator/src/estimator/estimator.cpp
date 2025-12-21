@@ -923,7 +923,7 @@ void Estimator::double2vector() {
     }
     // xjl
     if (GAUSSIAN_MAP) {
-      if (count > int(float(WINDOW_SIZE) * 0.5)) {
+      if (count > int(float(WINDOW_SIZE) * 0.3)) {
         for (int i = 0; i <= WINDOW_SIZE; i++) {
           Rs[i] = Quaterniond(para_Pose[i][6], para_Pose[i][3], para_Pose[i][4],
                               para_Pose[i][5])
@@ -1070,17 +1070,17 @@ void Estimator::optimization() {
     for (int i = 0; i <= frame_count; i++) {
       if (render_Pose[i][0] != 0) count++;
     }
-    if (count > int(float(WINDOW_SIZE) * 0.5)) {
+    if (count > int(float(WINDOW_SIZE) * 0.3)) {
       for (int i = 0; i <= frame_count; i++) {
         // printf("GS_Pose: %f,%f,%f\n",render_Pose[i][0],render_Pose[i][1],render_Pose[i][2]);
         // printf("Pose: %f,%f,%f\n",para_Pose[i][0],para_Pose[i][1],para_Pose[i][2]);
-        if (render_Pose[i][0] != 0)  //&& GS_pro[i].USE_GS==true
+        if (render_Pose[i][0] != 0)//&& GS_pro[i].USE_GS==true
         {
           // GS R|T factor
-          // problem.AddResidualBlock(
-          //     new ceres::AutoDiffCostFunction<GS_Factor, 3, 7>(
-          //         new GS_Factor(para_Pose[i], render_Pose[i])),
-          //                   loss_function, para_Pose[i]);
+          problem.AddResidualBlock(
+              new ceres::AutoDiffCostFunction<GS_Factor, 3, 7>(
+                  new GS_Factor(para_Pose[i], render_Pose[i])),
+                            loss_function, para_Pose[i]);
           // GS projection factor
           if (!GS_pro[i].map_pts.empty()) {
             int num = GS_pro[i].map_pts.size();

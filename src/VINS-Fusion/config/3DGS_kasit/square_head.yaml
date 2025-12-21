@@ -3,7 +3,7 @@
 #common parameters
 #support: 1 imu 1 cam; 1 imu 2 cam: 2 cam; 
 imu: 1         
-num_of_cam: 1  
+num_of_cam: 2  
 
 imu_topic: "/mavros/imu/data"
 image0_topic: "/camera/infra1/image_rect_raw"
@@ -67,5 +67,5 @@ gaussian_map: 1
 map_yaw: 0
 map_initial_position_x: -0.030694947783094503
 map_initial_position_y: -0.01279194876007592
-map_initial_position_z: 0.025285074208022336
+map_initial_position_z: 0.35285074208022336
 groundtruth_file: "/home/seu/xjl_work_space/VINS-Fusion/output/kasitVIO/square/square_head/groundtruth.txt" # load path

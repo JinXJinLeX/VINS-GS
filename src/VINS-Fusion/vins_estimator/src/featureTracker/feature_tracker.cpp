@@ -244,14 +244,14 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     pnp_3d_pts.clear();
     cur_render_pts.clear();
     cv::Ptr<cv::ORB> orb =
-        cv::ORB::create(800,   // nfeatures: 最大特征点数
+        cv::ORB::create(600,   // nfeatures: 最大特征点数
                         1.3f,  // scaleFactor: 图像金字塔的尺度因子
                         9,    // nlevels: 金字塔层数
-                        15,    // edgeThreshold: 边缘阈值
+                        10,    // edgeThreshold: 边缘阈值
                         0,     // firstLevel: 金字塔的首层索引
-                        2,     // WTA_K: 每对特征点之间的比较数
+                        3,     // WTA_K: 每对特征点之间的比较数
                         cv::ORB::HARRIS_SCORE,  // scoreType: 特征评分方法
-                        27  // patchSize: 每个特征点的像素补丁大小
+                        21  // patchSize: 每个特征点的像素补丁大小
         );
 
     // 关键点和描述符
@@ -270,8 +270,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
 
     if (!keypoints_cur.empty() && !keypoints_render.empty()) {
       // 匹配器
-      cv::BFMatcher matcher(cv::NORM_HAMMING,
-                            true);  // 使用汉明距离，开启交叉检查
+      cv::BFMatcher matcher(cv::NORM_HAMMING, true);  // 使用汉明距离，开启交叉检查
       vector<cv::DMatch> matches;
       matcher.match(descriptors_cur, descriptors_render, matches);
 
@@ -333,13 +332,13 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     // double cx = 320, cy = 240, fx = 613.082, fy = 526.842;// M2DGR的相机内参
     // double cx = 385.611, cy = 505.740, fx = 299.256, fy = 299.256;  // metacam的相机内参
     std::vector<int> inliers;
-    if (render_points3D.size() > 20) { // PnP 求解
+    if (render_points3D.size() > 22) { // PnP 求解
       try 
       {
         cv::solvePnPRansac(render_points3D, cur_pts_matched, K, cv::Mat(), R, T,
               false, 100, 5.0, 0.9, inliers, cv::SOLVEPNP_ITERATIVE);
       } catch (const cv::Exception &e) {
-        // std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "Error: " << e.what() << std::endl;
       }
       if (!R.empty() && !T.empty()) {
         // 计算重投影的平均误差
