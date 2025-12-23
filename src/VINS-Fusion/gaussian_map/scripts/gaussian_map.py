@@ -42,7 +42,8 @@ bridge = CvBridge()  # CvBridge 用于 OpenCV 和 ROS Image 消息转换
 # --------------- 读取 camera.yaml ---------------
 import yaml
 
-yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_kasit/camera.yaml"
+yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_euroc/camera.yaml"
+# yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_kasit/camera.yaml"
 # yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_312/camera.yaml"
 with open(yaml_path, 'r') as f:
     cfg = yaml.safe_load(f)
@@ -270,7 +271,8 @@ def main():
     # 使用 functools.partial 来传递额外的参数到回调函数
     odometry_callback_with_args = partial(odometry_callback, GaussianModel=gaussians, pipeline=pipeline, train_test_exp = model.train_test_exp, separate_sh = SPARSE_ADAM_AVAILABLE)
     # 订阅位姿信息的话题名称 /odom，并将回调函数传递进去  发布渲染图像
-    sub = rospy.Subscriber('/vins_estimator/camera_pose', Odometry, odometry_callback_with_args, queue_size = 100)
+    # sub = rospy.Subscriber('/vins_estimator/camera_pose', Odometry, odometry_callback_with_args, queue_size = 100)
+    sub = rospy.Subscriber('/vins_estimator/gt_pose', Odometry, odometry_callback_with_args, queue_size = 10000)
 
     # 初始化图像发布器
     # global image_pub, depth_pub

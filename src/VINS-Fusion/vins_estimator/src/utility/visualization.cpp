@@ -241,7 +241,7 @@ void pubCameraPose(const Estimator &estimator, const std_msgs::Header &header) {
     Vector3d P;
     P = MAP_POSITION;
     P = P + estimator.Rs[0] * estimator.tic[0];
-    Matrix3d map_yaw = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, 0.00001, 0.00001});
+    Matrix3d map_yaw = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, MAP_PITCH, MAP_ROLL});
     Quaterniond R = Quaterniond(map_yaw * estimator.ric[0]);
     nav_msgs::Odometry odometry;
     odometry.header = header;
@@ -442,7 +442,7 @@ void pubINITIALPOSE(const Estimator &estimator, const std_msgs::Header &header){
   if (estimator.solver_flag == Estimator::SolverFlag::INITIAL && estimator.initGSFlag == true) {
     Vector3d P;
     P = MAP_POSITION;
-    Matrix3d map_yaw = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, 0, 0});
+    Matrix3d map_yaw = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, MAP_PITCH, MAP_ROLL});
     Quaterniond R = Quaterniond(map_yaw);
     nav_msgs::Odometry odometry;
     odometry.header = header;

@@ -47,7 +47,7 @@ int SHOW_TRACK;
 int FLOW_BACK;
 // xjl
 int GAUSSIAN_MAP;
-double MAP_YAW;
+double MAP_YAW,MAP_PITCH, MAP_ROLL;
 Eigen::Vector3d MAP_POSITION;
 std::string GROUNDTRUTH;
 
@@ -94,6 +94,8 @@ void readParameters(std::string config_file)
     // xjl
     GAUSSIAN_MAP = fsSettings["gaussian_map"];
     MAP_YAW = fsSettings["map_yaw"];
+    MAP_PITCH = fsSettings["map_pitch"];
+    MAP_ROLL = fsSettings["map_roll"];
     fsSettings["groundtruth_file"] >> GROUNDTRUTH;
     double map_x, map_y, map_z;
     map_x = fsSettings["map_initial_position_x"];

@@ -152,7 +152,7 @@ void Estimator::inputImage(double t, const cv::Mat& _img, const cv::Mat& _img1,
   TicToc featureTrackerTime;
 
   if (_img1.empty()) {
-    if (render.time != 0) {
+    if (GAUSSIAN_MAP && render.time != 0) {
       featureFrame = featureTracker.trackImage(render_, t, _img, render_.rgb);
       if (render_.USE_GS == true) {
         GS::GS_FEATURE GS(render_);
@@ -770,19 +770,17 @@ bool Estimator::visualInitialAlign() {
   Matrix3d rot_diff;
   Vector3d trans_diff;
   rot_diff = R0 * Rs[0].transpose();
+
   // xjl map initial pose
   if (GAUSSIAN_MAP) {
-    Matrix3d map_yaw = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, 0, 0});
-    rot_diff = map_yaw * R0;
+    Matrix3d map_pose = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, MAP_PITCH, MAP_ROLL});
+    rot_diff = map_pose * R0;
     trans_diff = MAP_POSITION;
-    // trans_diff[0] = MAP_POSITION[0];
-    // trans_diff[1] = MAP_POSITION[1];
-    // trans_diff[2] = MAP_POSITION[2];
     ROS_INFO(
         "Use initial pose!!! Initial position is: %f, %f, %f and rotation "
         "is:%f\n",
         trans_diff[0], trans_diff[1], trans_diff[2], MAP_YAW);
-    cout << map_yaw << endl;
+    cout << map_pose << endl;
   }
 
   for (int i = 0; i <= frame_count; i++) {

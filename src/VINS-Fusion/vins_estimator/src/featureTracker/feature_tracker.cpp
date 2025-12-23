@@ -238,8 +238,8 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
   }
 
   // xjl
-  if (!_img1.empty() && !stereo_cam) {
-    cv::cvtColor(_img1, renderImg, cv::COLOR_BGR2GRAY);
+  if (GAUSSIAN_MAP && render.time!=0) {
+    cv::cvtColor(render.rgb, renderImg, cv::COLOR_BGR2GRAY);
     pnp_pts.clear();
     pnp_3d_pts.clear();
     cur_render_pts.clear();
@@ -253,7 +253,6 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
                         cv::ORB::HARRIS_SCORE,  // scoreType: 特征评分方法
                         21  // patchSize: 每个特征点的像素补丁大小
         );
-
     // 关键点和描述符
     vector<cv::KeyPoint> keypoints_cur, keypoints_render;
     vector<cv::Point3f> render_points3D;

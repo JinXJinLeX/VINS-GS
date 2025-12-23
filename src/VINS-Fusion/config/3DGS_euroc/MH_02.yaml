@@ -3,15 +3,15 @@
 #common parameters
 #support: 1 imu 1 cam; 1 imu 2 cam: 2 cam; 
 imu: 1         
-num_of_cam: 2  
+num_of_cam: 1  
 
 imu_topic: "/imu0"
 image0_topic: "/cam0/image_raw"
 image1_topic: "/cam1/image_raw"
-output_path: "/home/seu/xjl_work_space/VINS-Fusion/output"
+output_path: "/home/seu/xjl_work_space/VINS-Fusion/output/"
 
-cam0_calib: "cam0_mei.yaml"
-cam1_calib: "cam1_mei.yaml"
+cam0_calib: "cam0_pinhole.yaml"
+cam1_calib: "cam1_pinhole.yaml"
 image_width: 752
 image_height: 480
    
@@ -67,13 +67,13 @@ td: 0.0                             # initial value of time offset. unit: s. rea
 
 #loop closure parameters
 load_previous_pose_graph: 0        # load and reuse previous pose graph; load from 'pose_graph_save_path'
-pose_graph_save_path: "~/output/pose_graph/" # save and load path
+pose_graph_save_path: "/home/seu/xjl_work_space/VINS-Fusion/output/pose_graph/" # save and load path
 save_image: 1                   # save image in pose graph for visualization prupose; you can close this function by setting 0 
-gaussian_map: 0
-map_yaw: 0
+gaussian_map: 1
+map_yaw: 150
 map_pitch: 0
-map_roll: 0
-map_initial_position_x: 0
-map_initial_position_y: 0
-map_initial_position_z: 0
+map_roll: 180
+map_initial_position_x: 4.688319
+map_initial_position_y: -1.786938
+map_initial_position_z: 0.783338
 groundtruth_file: "/home/seu/xjl_work_space/VINS-Fusion/output/EuRoC/MH/MH_01/groundtruth.txt" # load path

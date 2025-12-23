@@ -104,7 +104,8 @@ class OptimizationParams(ParamGroup):
 def get_combined_args(parser : ArgumentParser):
     cmdlne_string = sys.argv[1:]
     cmdlne_string[0]="-m"
-    cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/kasitVIO/square/square_head_infra1/output"
+    # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/kasitVIO/square/square_head_infra1/output"
+    cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/EuRoC/MH/output"
     # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/kasitVIO/square/square_head/output"
     # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/M2DGRP/parking2/output"
     # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/seu/312_copy/output"
