@@ -11,7 +11,6 @@
 #include "estimator.h"
 
 #include "../utility/visualization.h"
-
 Estimator::Estimator() : f_manager{Rs} {
   ROS_INFO("init begins");
   initThreadFlag = false;
@@ -161,13 +160,12 @@ void Estimator::inputImage(double t, const cv::Mat& _img, const cv::Mat& _img1,
     } else
       featureFrame = featureTracker.trackImage(render_, t, _img);
   } else {
-    featureFrame = featureTracker.trackImage(render_, t, _img, _img1);
     // xjl stereo 2025_1214
-    //  if (render.time != 0) featureFrame = featureTracker.trackImage(render_,
-    //  t, _img, _img1); if (render_.USE_GS == true) {
-    //    GS::GS_FEATURE GS(render_);
-    //    GS_feature_Buf.push(GS);
-    //  }
+    featureFrame = featureTracker.trackImage(render_, t, _img, _img1);
+    if (render_.USE_GS == true) {
+      GS::GS_FEATURE GS(render_);
+      GS_feature_Buf.push(GS);
+    }
   }
 
   // printf("featureTracker time: %f\n", featureTrackerTime.toc());
@@ -443,7 +441,8 @@ void Estimator::processGS() {
       // printf("\033[1;31m----Pop_GSRTBuf---\n"
       //   "t: %f %f %f \033[0m ",
       //   tempQueue.front().T.x(),tempQueue.front().T.y(),tempQueue.front().T.z());
-      // printf("\033[1;31m-GS time : %f time: %f \033[0m\n", GStime, Headers[i]);
+      // printf("\033[1;31m-GS time : %f time: %f \033[0m\n", GStime,
+      // Headers[i]);
     }
   }
 }
@@ -763,25 +762,37 @@ bool Estimator::visualInitialAlign() {
     }
   }
 
+  Matrix3d rot_diff;
+  Vector3d trans_diff;
+  Matrix3d map_pose;
   Matrix3d R0 = Utility::g2R(g);
   double yaw = Utility::R2ypr(R0 * Rs[0]).x();
   R0 = Utility::ypr2R(Eigen::Vector3d{-yaw, 0, 0}) * R0;
   g = R0 * g;
-  Matrix3d rot_diff;
-  Vector3d trans_diff;
   rot_diff = R0 * Rs[0].transpose();
+  if (GAUSSIAN_MAP) {
+    map_pose = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, 0, 0});
+    rot_diff = map_pose * R0;
+    R0 = map_pose * R0;
+    trans_diff = MAP_POSITION;
+  }
+
 
   // xjl map initial pose
-  if (GAUSSIAN_MAP) {
-    Matrix3d map_pose = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, MAP_PITCH, MAP_ROLL});
-    rot_diff = map_pose * R0;
-    trans_diff = MAP_POSITION;
-    ROS_INFO(
-        "Use initial pose!!! Initial position is: %f, %f, %f and rotation "
-        "is:%f\n",
-        trans_diff[0], trans_diff[1], trans_diff[2], MAP_YAW);
-    cout << map_pose << endl;
-  }
+  // if (GAUSSIAN_MAP) {
+  //   map_pose = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, 0, 0});
+    // Matrix3d map_pose = Utility::ypr2R(Eigen::Vector3d{MAP_YAW, MAP_PITCH,MAP_ROLL});
+    // Eigen::Quaterniond q = Eigen::Quaterniond{MAP_W, MAP_X, MAP_Y, MAP_Z};
+    // Matrix3d map_pose = Eigen::Matrix3d(q);
+  //   rot_diff = rot_diff * map_pose;
+  //   trans_diff = MAP_POSITION;
+  //   ROS_INFO(
+  //       "Use initial pose!!! Initial position is: %f, %f, %f and rotation "
+  //       "is:%f\n",
+  //       trans_diff[0], trans_diff[1], trans_diff[2], MAP_YAW);
+  //   cout << "rot_diff: " << rot_diff << endl;
+  //   cout << "map_pose: " << map_pose << endl;
+  // }
 
   for (int i = 0; i <= frame_count; i++) {
     Ps[i] = rot_diff * Ps[i] + trans_diff;
@@ -921,7 +932,7 @@ void Estimator::double2vector() {
     }
     // xjl
     if (GAUSSIAN_MAP) {
-      if (count > int(float(WINDOW_SIZE) * 0.3)) {
+      if (count > int(float(WINDOW_SIZE) * 0.2)) {
         for (int i = 0; i <= WINDOW_SIZE; i++) {
           Rs[i] = Quaterniond(para_Pose[i][6], para_Pose[i][3], para_Pose[i][4],
                               para_Pose[i][5])
@@ -1068,25 +1079,27 @@ void Estimator::optimization() {
     for (int i = 0; i <= frame_count; i++) {
       if (render_Pose[i][0] != 0) count++;
     }
-    if (count > int(float(WINDOW_SIZE) * 0.3)) {
+    if (count > int(float(WINDOW_SIZE) * 0.2)) {
       for (int i = 0; i <= frame_count; i++) {
-        // printf("GS_Pose: %f,%f,%f\n",render_Pose[i][0],render_Pose[i][1],render_Pose[i][2]);
-        // printf("Pose: %f,%f,%f\n",para_Pose[i][0],para_Pose[i][1],para_Pose[i][2]);
-        if (render_Pose[i][0] != 0)//&& GS_pro[i].USE_GS==true
+        // printf("GS_Pose:
+        // %f,%f,%f\n",render_Pose[i][0],render_Pose[i][1],render_Pose[i][2]);
+        // printf("Pose:
+        // %f,%f,%f\n",para_Pose[i][0],para_Pose[i][1],para_Pose[i][2]);
+        if (render_Pose[i][0] != 0)  //&& GS_pro[i].USE_GS==true
         {
           // GS R|T factor
           problem.AddResidualBlock(
               new ceres::AutoDiffCostFunction<GS_Factor, 3, 7>(
                   new GS_Factor(para_Pose[i], render_Pose[i])),
-                            loss_function, para_Pose[i]);
+              loss_function, para_Pose[i]);
           // GS projection factor
           if (!GS_pro[i].map_pts.empty()) {
             int num = GS_pro[i].map_pts.size();
             // cout<<"i: "<< i <<"  map_pts_num: "<< num <<endl;
             for (int j = 0; j < num; j++) {
-              // cout<<"j: "<< j <<"  map_pts: "<< GS_pro[i].map_pts[j] <<"pro_pts: "<< GS_pro[i].pro_pts[j] <<endl;
-              GSProjectionFactor* GS_Projection_Factor = new
-              GSProjectionFactor(
+              // cout<<"j: "<< j <<"  map_pts: "<< GS_pro[i].map_pts[j]
+              // <<"pro_pts: "<< GS_pro[i].pro_pts[j] <<endl;
+              GSProjectionFactor* GS_Projection_Factor = new GSProjectionFactor(
                   GS_pro[i].map_pts[j], GS_pro[i].pro_pts[j],
                   GS_pro[i].conf_points[j]);
               problem.AddResidualBlock(GS_Projection_Factor, loss_function,

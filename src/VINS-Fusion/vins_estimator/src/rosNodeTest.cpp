@@ -28,6 +28,7 @@
 #include <message_filters/sync_policies/approximate_time.h>
 #include <message_filters/time_synchronizer.h>
 
+
 #include "utility/renderpnp.h"
 // #include "gaussian_msgs/image_with_pose.h"
 #include <gaussian_msgs/image_with_pose.h>
@@ -39,25 +40,24 @@ queue<sensor_msgs::PointCloudConstPtr> feature_buf;
 queue<sensor_msgs::ImageConstPtr> img0_buf;
 queue<sensor_msgs::ImageConstPtr> img1_buf;
 // xjl
-// queue<sensor_msgs::Image> render_buf, depth_buf;
 // queue<gaussian_msgs::image_with_pose> gaussian_buf;
 queue<GS::GS_RENDER> pnpimage_buf;
 
 std::mutex m_buf;
 
-void img0_callback(const sensor_msgs::ImageConstPtr &img_msg) {
+void img0_callback(const sensor_msgs::ImageConstPtr& img_msg) {
   m_buf.lock();
   img0_buf.push(img_msg);
   m_buf.unlock();
 }
 
-void img1_callback(const sensor_msgs::ImageConstPtr &img_msg) {
+void img1_callback(const sensor_msgs::ImageConstPtr& img_msg) {
   m_buf.lock();
   img1_buf.push(img_msg);
   m_buf.unlock();
 }
 
-cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg) {
+cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr& img_msg) {
   cv_bridge::CvImageConstPtr ptr;
   if (img_msg->encoding == "8UC1") {
     sensor_msgs::Image img;
@@ -110,14 +110,10 @@ void sync_process() {
         pnpimage_buf.pop();
       }
       m_buf.unlock();
-      if (!image0.empty())
-      {
-        if (pnp_image.time == 0) 
-        {
+      if (!image0.empty()) {
+        if (pnp_image.time == 0) {
           estimator.inputImage(time, image0, image1);
-        }
-        else
-        {
+        } else {
           estimator.inputImage(time, image0, image1, pnp_image);
         }
       }
@@ -131,24 +127,25 @@ void sync_process() {
         header = img0_buf.front()->header;
         image = getImageFromMsg(img0_buf.front());
         img0_buf.pop();
+        // printf("img0_buf not empty!!! time is: %f \n",time);
       }
 
       // xjl
-      if (!pnpimage_buf.empty()) {
+      if (!pnpimage_buf.empty()&&time!=0) {
         pnp_image = pnpimage_buf.front();
-        // printf("have pnp image!!!!%f\n", pnp_image.time);
         pnpimage_buf.pop();
+        // printf("have pnp image!!!!%f\n", pnp_image.time);
       }
       m_buf.unlock();
-      if (!image.empty()) {
-        // printf("add pnp image!!!!%f\n", pnp_image.time);
+      if (!image.empty()&&time!=0) {
+        printf("pnp image: %f, live image: %f\n", pnp_image.time,time);
         if (pnp_image.time == 0) {
           estimator.inputImage(time, image);
+          printf("no pnp image to match!!!\n");
         } else {
           estimator.inputImage(time, image, cv::Mat(), pnp_image);
-          // printf("have pnp image to match!!!\n");
-          // cv::imshow("initial", pnp_image.rgb);
-          // cv::waitKey(0.1);
+          printf("have pnp image to match!!!\n");
+          // pnp_image.time = 0;
         }
       }
     }
@@ -157,7 +154,7 @@ void sync_process() {
   }
 }
 
-void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg) {
+void imu_callback(const sensor_msgs::ImuConstPtr& imu_msg) {
   double t = imu_msg->header.stamp.toSec();
   double dx = imu_msg->linear_acceleration.x;
   double dy = imu_msg->linear_acceleration.y;
@@ -171,7 +168,7 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg) {
   return;
 }
 
-void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg) {
+void feature_callback(const sensor_msgs::PointCloudConstPtr& feature_msg) {
   map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
   for (unsigned int i = 0; i < feature_msg->points.size(); i++) {
     int feature_id = feature_msg->channels[0].values[i];
@@ -200,7 +197,7 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg) {
   return;
 }
 
-void restart_callback(const std_msgs::BoolConstPtr &restart_msg) {
+void restart_callback(const std_msgs::BoolConstPtr& restart_msg) {
   if (restart_msg->data == true) {
     ROS_WARN("restart the estimator!");
     estimator.clearState();
@@ -209,7 +206,7 @@ void restart_callback(const std_msgs::BoolConstPtr &restart_msg) {
   return;
 }
 
-void imu_switch_callback(const std_msgs::BoolConstPtr &switch_msg) {
+void imu_switch_callback(const std_msgs::BoolConstPtr& switch_msg) {
   if (switch_msg->data == true) {
     // ROS_WARN("use IMU!");
     estimator.changeSensorType(1, STEREO);
@@ -220,7 +217,7 @@ void imu_switch_callback(const std_msgs::BoolConstPtr &switch_msg) {
   return;
 }
 
-void cam_switch_callback(const std_msgs::BoolConstPtr &switch_msg) {
+void cam_switch_callback(const std_msgs::BoolConstPtr& switch_msg) {
   if (switch_msg->data == true) {
     // ROS_WARN("use stereo!");
     estimator.changeSensorType(USE_IMU, 1);
@@ -234,7 +231,7 @@ void cam_switch_callback(const std_msgs::BoolConstPtr &switch_msg) {
 // void gaussian_callback(const sensor_msgs::ImageConstPtr &rgb_msg, const
 // sensor_msgs::ImageConstPtr &depth_msg)
 void gaussian_callback(
-    const gaussian_msgs::image_with_pose::ConstPtr &render_msg) {
+    const gaussian_msgs::image_with_pose::ConstPtr& render_msg) {
   ROS_DEBUG("Subscribed to /render");
 
   geometry_msgs::Pose pose = render_msg->Pose;
@@ -259,13 +256,14 @@ void gaussian_callback(
   position[6] = pose.orientation.w;
   GS::GS_RENDER data_map =
       GS::GS_RENDER(GS_time, position, rgb_image, depth_image, conf_image);
-  printf("get gaussian rendering --time:%f\n",GS_time);
+  // printf("get gaussian rendering --time:%f\n", GS_time);
   m_buf.lock();
   pnpimage_buf.push(data_map);
   m_buf.unlock();
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
+
   ros::init(argc, argv, "vins_estimator");
   ros::NodeHandle n("~");
   ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
@@ -285,6 +283,9 @@ int main(int argc, char **argv) {
 
   readParameters(config_file);
   estimator.setParameter();
+  ROS_INFO("Fusion thread is started!!");
+
+
 
 #ifdef EIGEN_DONT_PARALLELIZE
   ROS_DEBUG("EIGEN_DONT_PARALLELIZE");
@@ -303,6 +304,7 @@ int main(int argc, char **argv) {
       n.subscribe("/feature_tracker/feature", 2000, feature_callback);
   ros::Subscriber sub_img0 = n.subscribe(IMAGE0_TOPIC, 100, img0_callback);
   ros::Subscriber sub_img1;
+
   // xjl
   // if (GAUSSIAN_MAP)
   // message_filters::Subscriber<sensor_msgs::Image> rgb_sub(n, "/render", 50);

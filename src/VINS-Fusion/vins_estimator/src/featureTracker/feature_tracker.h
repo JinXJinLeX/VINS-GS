@@ -7,6 +7,8 @@
 #include <csignal>
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
+#include <tbb/tbb.h>
+#include <yaml-cpp/yaml.h>
 
 #include "camodocal/camera_models/CameraFactory.h"
 #include "camodocal/camera_models/CataCamera.h"
@@ -14,12 +16,18 @@
 #include "../estimator/parameters.h"
 #include "../utility/tic_toc.h"
 #include "../utility/renderpnp.h"
+#include "../sp_sg/read_config.h"
+#include "../sp_sg/super_glue.h"
+#include "../sp_sg/super_point.h"
+#include "../sp_sg/utils.h"
+#include "../shared_objects.h"
 
 using namespace std;
 using namespace camodocal;
 using namespace Eigen;
 
-bool inBorder(const cv::Point2f &pt);
+
+// bool inBorder(const cv::Point2f &pt);
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status);
 void reduceVector(vector<int> &v, vector<uchar> status);
 
@@ -32,12 +40,12 @@ public:
     void readIntrinsicParameter(const vector<string> &calib_file);
     void showUndistortion(const string &name);
     void rejectWithF();
-    void undistortedPoints();
+    // void undistortedPoints();
     vector<cv::Point2f> undistortedPts(vector<cv::Point2f> &pts, camodocal::CameraPtr cam);
     vector<cv::Point2f> ptsVelocity(vector<int> &ids, vector<cv::Point2f> &pts,
                                     map<int, cv::Point2f> &cur_id_pts, map<int, cv::Point2f> &prev_id_pts);
-    void showTwoImage(const cv::Mat &img1, const cv::Mat &img2,
-                      vector<cv::Point2f> pts1, vector<cv::Point2f> pts2);
+    // void showTwoImage(const cv::Mat &img1, const cv::Mat &img2,
+    //                   vector<cv::Point2f> pts1, vector<cv::Point2f> pts2);
     void drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
                    vector<int> &curLeftIds,
                    vector<cv::Point2f> &curLeftPts,
@@ -76,4 +84,5 @@ public:
     vector<cv::Point3f> pnp_3d_pts;
     vector<cv::Point2f> cur_render_pts;
     vector<cv::Point2f> cur_pts_matched;
+    SharedObjects sp_sg;
 };

@@ -12,7 +12,7 @@
 
 #include "feature_tracker.h"
 
-bool FeatureTracker::inBorder(const cv::Point2f &pt) {
+bool FeatureTracker::inBorder(const cv::Point2f& pt) {
   const int BORDER_SIZE = 1;
   int img_x = cvRound(pt.x);
   int img_y = cvRound(pt.y);
@@ -27,14 +27,14 @@ double distance(cv::Point2f pt1, cv::Point2f pt2) {
   return sqrt(dx * dx + dy * dy);
 }
 
-void reduceVector(vector<cv::Point2f> &v, vector<uchar> status) {
+void reduceVector(vector<cv::Point2f>& v, vector<uchar> status) {
   int j = 0;
   for (int i = 0; i < int(v.size()); i++)
     if (status[i]) v[j++] = v[i];
   v.resize(j);
 }
 
-void reduceVector(vector<int> &v, vector<uchar> status) {
+void reduceVector(vector<int>& v, vector<uchar> status) {
   int j = 0;
   for (int i = 0; i < int(v.size()); i++)
     if (status[i]) v[j++] = v[i];
@@ -45,6 +45,17 @@ FeatureTracker::FeatureTracker() {
   stereo_cam = 0;
   n_id = 0;
   hasPrediction = false;
+  // xjl sp + sg 20260103
+  // if (SP_SG) {
+    std::string config_path =
+        "src/VINS-Fusion/vins_estimator/src/sp_sg/sp_sg_config.yaml";
+    std::string model_dir = "src/VINS-Fusion/vins_estimator/src/sp_sg/weights";
+    std::string image_path =
+        "src/VINS-Fusion/vins_estimator/src/sp_sg/output_grayscale.png";
+    Configs configs(config_path, model_dir);
+    sp_sg.initialize(configs, image_path);
+    ROS_INFO("superpoint superglue is finshed!!");
+  // }
 }
 
 void FeatureTracker::setMask() {
@@ -58,8 +69,8 @@ void FeatureTracker::setMask() {
         make_pair(track_cnt[i], make_pair(cur_pts[i], ids[i])));
 
   sort(cnt_pts_id.begin(), cnt_pts_id.end(),
-       [](const pair<int, pair<cv::Point2f, int>> &a,
-          const pair<int, pair<cv::Point2f, int>> &b) {
+       [](const pair<int, pair<cv::Point2f, int>>& a,
+          const pair<int, pair<cv::Point2f, int>>& b) {
          return a.first > b.first;
        });
 
@@ -67,7 +78,7 @@ void FeatureTracker::setMask() {
   ids.clear();
   track_cnt.clear();
 
-  for (auto &it : cnt_pts_id) {
+  for (auto& it : cnt_pts_id) {
     if (mask.at<uchar>(it.second.first) == 255) {
       cur_pts.push_back(it.second.first);
       ids.push_back(it.second.second);
@@ -77,7 +88,7 @@ void FeatureTracker::setMask() {
   }
 }
 
-double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2) {
+double FeatureTracker::distance(cv::Point2f& pt1, cv::Point2f& pt2) {
   // printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
   double dx = pt1.x - pt2.x;
   double dy = pt1.y - pt2.y;
@@ -85,8 +96,8 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2) {
 }
 
 map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>>
-FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
-                           const cv::Mat &_img, const cv::Mat &_img1) {
+FeatureTracker::trackImage(GS::GS_RENDER& render, double _cur_time,
+                           const cv::Mat& _img, const cv::Mat& _img1) {
   TicToc t_r;
   cur_time = _cur_time;
   cur_img = _img;
@@ -158,7 +169,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     // printf("track cnt %d\n", (int)ids.size());
   }
 
-  for (auto &n : track_cnt) n++;
+  for (auto& n : track_cnt) n++;
 
   if (1) {
     // rejectWithF();
@@ -179,7 +190,7 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
       n_pts.clear();
     ROS_DEBUG("detect feature costs: %f ms", t_t.toc());
 
-    for (auto &p : n_pts) {
+    for (auto& p : n_pts) {
       cur_pts.push_back(p);
       ids.push_back(n_id++);
       track_cnt.push_back(1);
@@ -236,51 +247,40 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
     }
     prev_un_right_pts_map = cur_un_right_pts_map;
   }
+  pnp_pts.clear();
+  pnp_3d_pts.clear();
+  cur_render_pts.clear();
+  // 关键点和描述符
+  vector<cv::KeyPoint> keypoints_cur, keypoints_render, keypoints_right;
+  vector<cv::Point3f> render_points3D;
+  vector<cv::Point2f> render_points2D, cur_points2D, right_points2D;
+  vector<float> train_confidence;
+  cv::Mat R, T;
+  cv::Mat descriptors_cur, descriptors_render, descriptors_right;
+  vector<cv::DMatch> good_matches;
+  std::vector<cv::Point2f> undistorted_cur_pts;
 
   // xjl
-  if (GAUSSIAN_MAP && render.time!=0) {
+  if (GAUSSIAN_MAP && render.time != 0) {
     cv::cvtColor(render.rgb, renderImg, cv::COLOR_BGR2GRAY);
-    pnp_pts.clear();
-    pnp_3d_pts.clear();
-    cur_render_pts.clear();
-    cv::Ptr<cv::ORB> orb =
-        cv::ORB::create(600,   // nfeatures: 最大特征点数
-                        1.3f,  // scaleFactor: 图像金字塔的尺度因子
-                        9,    // nlevels: 金字塔层数
-                        10,    // edgeThreshold: 边缘阈值
-                        0,     // firstLevel: 金字塔的首层索引
-                        3,     // WTA_K: 每对特征点之间的比较数
-                        cv::ORB::HARRIS_SCORE,  // scoreType: 特征评分方法
-                        21  // patchSize: 每个特征点的像素补丁大小
-        );
-    // 关键点和描述符
-    vector<cv::KeyPoint> keypoints_cur, keypoints_render;
-    vector<cv::Point3f> render_points3D;
-    vector<cv::Point2f> render_points2D, cur_points2D;
-    vector<float> train_confidence;
-    cv::Mat R, T;
-    cv::Mat descriptors_cur, descriptors_render;
-    vector<cv::DMatch> good_matches;
 
-    // 提取 ORB 特征
-    orb->detectAndCompute(cur_img, cv::Mat(), keypoints_cur, descriptors_cur);
-    orb->detectAndCompute(renderImg, cv::Mat(), keypoints_render,
-                          descriptors_render);
-
-    if (!keypoints_cur.empty() && !keypoints_render.empty()) {
-      // 匹配器
-      cv::BFMatcher matcher(cv::NORM_HAMMING, true);  // 使用汉明距离，开启交叉检查
-      vector<cv::DMatch> matches;
-      matcher.match(descriptors_cur, descriptors_render, matches);
-
-      // 只保留优秀匹配
-      for (size_t i = 0; i < matches.size(); i++) {
-        if (matches[i].distance <= 30)  // 30.0 是经验值
-        {
-          good_matches.push_back(matches[i]);
-        }
+    if (SP_SG) {  // 执行 SuperPoint 和 SuperGlue 操作
+      Eigen::Matrix<double, 259, Eigen::Dynamic> feature_points0,
+          feature_points1;
+      sp_sg.superpoint->infer(cur_img, feature_points0);
+      sp_sg.superpoint->infer(renderImg, feature_points1);
+      sp_sg.superglue->matching_points(feature_points0, feature_points1,
+                                       good_matches, true);
+      for (int i = 0; i < feature_points0.cols(); ++i) {
+        float x = feature_points0(1, i);
+        float y = feature_points0(2, i);
+        keypoints_cur.push_back(cv::KeyPoint(x, y, 10));
       }
-
+      for (int i = 0; i < feature_points1.cols(); ++i) {
+        float x = feature_points1(1, i);
+        float y = feature_points1(2, i);
+        keypoints_render.push_back(cv::KeyPoint(x, y, 10));
+      }
       // 提取匹配点坐标
       // cur_render_pts.clear();
       cur_pts_matched.clear();
@@ -290,74 +290,176 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
         cur_points2D.push_back(pt_cur);
         render_points2D.push_back(pt_render);
       }
-      // 绘制匹配结果
-      cv::Mat matchImg;
+      cv::Mat img_matches;
       cv::drawMatches(cur_img, keypoints_cur, renderImg, keypoints_render,
-                      good_matches, matchImg, cv::Scalar::all(-1),
-                      cv::Scalar::all(-1), vector<char>(),
+                      good_matches, img_matches, cv::Scalar::all(-1),
+                      cv::Scalar::all(-1), std::vector<char>(),
                       cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
-                      
-      cv::imshow("ORB Matches", matchImg);
-      cv::waitKey(1);  // 确保窗口刷新
+      cv::imshow("SuperGlue Matches", img_matches);
+      cv::waitKey(1);
     }
 
-    cv::Mat K;
-    double fx,fy,cx,cy;
-    if (m_camera[0]->modelType() == Camera::PINHOLE)
-    {
+    if (ORB) {
+      cv::Ptr<cv::ORB> orb =
+          cv::ORB::create(800,  // nfeatures: 最大特征点数
+                          1.3f,  // scaleFactor: 图像金字塔的尺度因子
+                          8,     // nlevels: 金字塔层数
+                          10,    // edgeThreshold: 边缘阈值
+                          0,     // firstLevel: 金字塔的首层索引
+                          3,     // WTA_K: 每对特征点之间的比较数
+                          cv::ORB::HARRIS_SCORE,  // scoreType: 特征评分方法
+                                                  // cv::ORB::HARRIS_SCORE
+                          21  // patchSize: 每个特征点的像素补丁大小
+          );
+
+      // 提取 ORB 特征
+      orb->detectAndCompute(cur_img, cv::Mat(), keypoints_cur, descriptors_cur);
+      orb->detectAndCompute(renderImg, cv::Mat(), keypoints_render,
+                            descriptors_render);
+
+      if (!keypoints_cur.empty() && !keypoints_render.empty()) {
+        // 匹配器
+        cv::BFMatcher matcher(cv::NORM_HAMMING,
+                              true);  // 使用汉明距离，开启交叉检查
+        vector<cv::DMatch> matches;
+        matcher.match(descriptors_cur, descriptors_render, matches);
+
+        // 只保留优秀匹配
+        for (size_t i = 0; i < matches.size(); i++) {
+          if (matches[i].distance <= 20)  // 30.0 是经验值 30
+          {
+            good_matches.push_back(matches[i]);
+          }
+        }
+
+        // 提取匹配点坐标
+        // cur_render_pts.clear();
+        cur_pts_matched.clear();
+        for (size_t i = 0; i < good_matches.size(); i++) {
+          cv::Point2f pt_cur = keypoints_cur[good_matches[i].queryIdx].pt;
+          cv::Point2f pt_render = keypoints_render[good_matches[i].trainIdx].pt;
+          cur_points2D.push_back(pt_cur);
+          render_points2D.push_back(pt_render);
+        }
+        // 绘制匹配结果
+        cv::Mat matchImg;
+        cv::drawMatches(cur_img, keypoints_cur, renderImg, keypoints_render,
+                        good_matches, matchImg, cv::Scalar::all(-1),
+                        cv::Scalar::all(-1), vector<char>(),
+                        cv::DrawMatchesFlags::NOT_DRAW_SINGLE_POINTS);
+
+        cv::imshow("ORB Matches", matchImg);
+        cv::waitKey(1);  // 确保窗口刷新
+      }
+    }
+
+    cv::Mat K, D;
+    double fx, fy, cx, cy, k1, k2, p1, p2;
+    if (m_camera[0]->modelType() == Camera::PINHOLE) {
       auto pinhole = dynamic_pointer_cast<PinholeCamera>(m_camera[0]);
       fx = pinhole->getParameters().fx();
       fy = pinhole->getParameters().fy();
       cx = pinhole->getParameters().cx();
       cy = pinhole->getParameters().cy();
+      k1 = pinhole->getParameters().k1();
+      k2 = pinhole->getParameters().k2();
+      p1 = pinhole->getParameters().p1();
+      p2 = pinhole->getParameters().p2();
       K = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
-        for (int i = 0; const auto p : render_points2D) {
-          double z = render.depth.at<float>(p.y, p.x);  // 假设深度图为 float 类型
-          double conf = render.mask.at<float>(p.y, p.x);
-          double confidence = render.mask.at<float>(p.y,p.x);
-          if ( z > 0.1 && z < 30)                        // 深度值必须大于0, 置信度大于0.5
-          {
-            double x = z * (p.x - cx) / fx;
-            double y = z * (p.y - cy) / fy;
-            render_points3D.push_back(cv::Point3f(x, y, z));
-            // 将当前帧中与渲染图像匹配的关键点添加到匹配点列表中
-            cur_pts_matched.push_back(cur_points2D[i]);
-            train_confidence.push_back(confidence);
-          }
-          i++;
+      D = (cv::Mat_<double>(4, 1) << k1, k2, p1, p2);
+      for (int i = 0; const auto p : render_points2D) {
+        double z = render.depth.at<float>(p.y, p.x);  // 假设深度图为 float 类型
+        double conf = render.mask.at<float>(p.y, p.x);
+        double confidence = render.mask.at<float>(p.y, p.x);
+        if (z > 0.1 && z < 10)  // 深度值必须大于0, 置信度大于0.5
+        {
+          double x = z * (p.x - cx) / fx;
+          double y = z * (p.y - cy) / fy;
+          render_points3D.push_back(cv::Point3f(x, y, z));
+          // 将当前帧中与渲染图像匹配的关键点添加到匹配点列表中
+          cur_pts_matched.push_back(cur_points2D[i]);
+          train_confidence.push_back(confidence);
         }
+        i++;
+      }
+      undistorted_cur_pts = cur_pts_matched;
     }
-    // double cx = 324.085, cy = 232.723, fx = 603.955, fy = 603.125;// M2DGR的相机内参
-    // double cx = 320, cy = 240, fx = 613.082, fy = 526.842;// M2DGR的相机内参
-    // double cx = 385.611, cy = 505.740, fx = 299.256, fy = 299.256;  // metacam的相机内参
+    if (m_camera[0]->modelType() == Camera::MEI) {
+      auto mei = dynamic_pointer_cast<CataCamera>(m_camera[0]);
+      fx = mei->getParameters().gamma1();
+      fy = mei->getParameters().gamma2();
+      // cx = mei->getParameters().u0();
+      // cy = mei->getParameters().v0();
+      cx = -mei->getParameters().gamma1() / mei->getParameters().u0();
+      cy = -mei->getParameters().gamma2() / mei->getParameters().v0();
+      k1 = mei->getParameters().k1();
+      k2 = mei->getParameters().k2();
+      p1 = mei->getParameters().p1();
+      p2 = mei->getParameters().p2();
+      K = (cv::Mat_<double>(3, 3) << fx, 0, cx, 0, fy, cy, 0, 0, 1);
+      D = (cv::Mat_<double>(4, 1) << k1, k2, p1, p2);
+      for (int i = 0; const auto p : render_points2D) {
+        double z = render.depth.at<float>(p.y, p.x);  // 假设深度图为 float 类型
+        double conf = render.mask.at<float>(p.y, p.x);
+        double confidence = render.mask.at<float>(p.y, p.x);
+        if (z > 0.1 && z < 10)  // 深度值必须大于0, 置信度大于0.5
+        {
+          double x = z * (p.x - cx) / fx;
+          double y = z * (p.y - cy) / fy;
+          // --- 建议：在函数开头定义好渲染相机的内参 ---
+          render_points3D.push_back(cv::Point3f(x, y, z));
+          // cout << "x: " << x << " y: " << y << " z: " << z << std::endl;
+          // x = z * (p.x - 362.66) / 461.15;
+          // y = z * (p.y - 248.21) / 459.75;
+          // cout << "x1: " << x << " y1: " << y << " z1: " << z << std::endl;
+          // 将当前帧中与渲染图像匹配的关键点添加到匹配点列表中
+          cur_pts_matched.push_back(cur_points2D[i]);
+          train_confidence.push_back(confidence);
+        }
+        i++;
+      }
+      // cv::fisheye::undistortPoints(cur_pts_matched, cur_pts_matched, K, D,
+      // cv::noArray(), K);
+    }
+    // double cx = 324.085, cy = 232.723, fx = 603.955, fy = 603.125;//
+    // M2DGR的相机内参 double cx = 320, cy = 240, fx = 613.082, fy = 526.842;//
+    // M2DGR的相机内参 double cx = 385.611, cy = 505.740, fx = 299.256, fy =
+    // 299.256;  // metacam的相机内参
     std::vector<int> inliers;
-    if (render_points3D.size() > 22) { // PnP 求解
-      try 
-      {
+    if (render_points3D.size() > 20) {  // PnP 求解
+      try {
         cv::solvePnPRansac(render_points3D, cur_pts_matched, K, cv::Mat(), R, T,
-              false, 100, 5.0, 0.9, inliers, cv::SOLVEPNP_ITERATIVE);
-      } catch (const cv::Exception &e) {
+                           false, 100, 5.0, 0.9, inliers,
+                           cv::SOLVEPNP_ITERATIVE);
+        // std::cout << "pts_matched size is: " << cur_pts_matched.size()
+        //           << "inliers size is: " << inliers.size() << std::endl;
+      } catch (const cv::Exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
       }
-      if (!R.empty() && !T.empty()) {
+      if (!R.empty() && !T.empty() && inliers.size() > 20) {
         // 计算重投影的平均误差
         std::vector<cv::Point2f> projected_points;
         cv::projectPoints(render_points3D, R, T, K, cv::Mat(),
                           projected_points);
         double total_error = 0.0;
-        for(int idx : inliers)
-        {
+        for (int idx : inliers) {
           double error = cv::norm(cur_pts_matched[idx] - projected_points[idx]);
           total_error += error;
-          if(error < 1.5 && train_confidence[idx] > 0.3)
+          if (error < 1.5)  // && train_confidence[idx] > 0.3
           {
-            render.map_points.push_back(render.reprojection(render_points3D[idx].x,render_points3D[idx].y,render_points3D[idx].z));
-            render.pro_points.push_back(Vector3d((cur_pts_matched[idx].x-cx)/fx,(cur_pts_matched[idx].y-cy)/fy,1));
+            Vector3d p_w = render.reprojection(
+              render_points3D[idx].x, render_points3D[idx].y,
+              render_points3D[idx].z);
+            Vector3d p_c = Vector3d((cur_pts_matched[idx].x - cx) / fx,
+            (cur_pts_matched[idx].y - cy) / fy, 1);
+            render.map_points.push_back(p_w);
+            render.pro_points.push_back(p_c);
             render.conf_points.push_back(train_confidence[idx]);
           }
         }
-        double mean_error = inliers.empty() ? 1e6 : total_error / inliers.size();
-        if (mean_error < 3.0 && inliers.size() > cur_pts_matched.size()/2) {
+        double mean_error =
+            inliers.empty() ? 1e6 : total_error / inliers.size();
+        if (mean_error < 4.0 && (inliers.size() > cur_pts_matched.size() / 2 || inliers.size() > 30)) {
           cv::Mat R_matrix;
           if (R.rows == 3 && R.cols == 1) {
             cv::Rodrigues(R, R_matrix);  // 将旋转向量转换为旋转矩阵
@@ -379,17 +481,27 @@ FeatureTracker::trackImage(GS::GS_RENDER &render, double _cur_time,
           render.USE_GS = true;
           /* =============  report  ==================== */
           std::cout << "\033[1;32m"
-          << "┌------------ feature quality ------------┐\n"
-          << "│ Time          : " << std::fixed   << std::setprecision(6) << render.time     << "\n"
-          << "│ Current       : " << std::setw(2) << keypoints_cur.size()    << "\n"
-          << "│ Rendered      : " << std::setw(2) << keypoints_render.size() << "\n"
-          << "│ good_matches  : " << std::setw(2) << good_matches.size()     << "\n"
-          << "│ Inliers       : " << std::setw(2) << inliers.size()          << "\n"
-          << "│ mean_error    : " << std::setprecision(3) << mean_error << " px \n"
-          << "│ GS_T          : " << std::setprecision(3) << render.T.transpose()<<"\n"
-          << "└-----------------------------------------┘\n"
-          << "\033[0m" << std::endl;
+                    << "┌------------ feature quality ------------┐\n"
+                    << "│ Time          : " << std::fixed
+                    << std::setprecision(6) << cur_time << "\n"                   
+                    << "│ GSTime        : " << std::fixed
+                    << std::setprecision(6) << render.time << "\n"
+                    << "│ Current       : " << std::setw(2)
+                    << keypoints_cur.size() << "\n"
+                    << "│ Rendered      : " << std::setw(2)
+                    << keypoints_render.size() << "\n"
+                    << "│ good_matches  : " << std::setw(2)
+                    << good_matches.size() << "\n"
+                    << "│ Inliers       : " << std::setw(2) 
+                    << inliers.size() << "\n"
+                    << "│ mean_error    : " << std::setprecision(3)
+                    << mean_error << " px \n"
+                    << "│ GS_position   : " << std::setprecision(3)
+                    << render.T.transpose() << "\n"
+                    << "└-----------------------------------------┘\n"
+                    << "\033[0m" << std::endl;
           /* ============================================ */
+          render.time = cur_time;
         }
       } else {
         ROS_DEBUG("R or T is empty!");
@@ -492,7 +604,7 @@ void FeatureTracker::rejectWithF() {
   }
 }
 
-void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file) {
+void FeatureTracker::readIntrinsicParameter(const vector<string>& calib_file) {
   for (size_t i = 0; i < calib_file.size(); i++) {
     ROS_INFO("reading paramerter of camera %s", calib_file[i].c_str());
     camodocal::CameraPtr camera =
@@ -502,7 +614,7 @@ void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file) {
   if (calib_file.size() == 2) stereo_cam = 1;
 }
 
-void FeatureTracker::showUndistortion(const string &name) {
+void FeatureTracker::showUndistortion(const string& name) {
   cv::Mat undistortedImg(row + 600, col + 600, CV_8UC1, cv::Scalar(0));
   vector<Eigen::Vector2d> distortedp, undistortedp;
   for (int i = 0; i < col; i++)
@@ -537,7 +649,7 @@ void FeatureTracker::showUndistortion(const string &name) {
   // cv::waitKey(0);
 }
 
-vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts,
+vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f>& pts,
                                                    camodocal::CameraPtr cam) {
   vector<cv::Point2f> un_pts;
   for (unsigned int i = 0; i < pts.size(); i++) {
@@ -550,8 +662,8 @@ vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts,
 }
 
 vector<cv::Point2f> FeatureTracker::ptsVelocity(
-    vector<int> &ids, vector<cv::Point2f> &pts,
-    map<int, cv::Point2f> &cur_id_pts, map<int, cv::Point2f> &prev_id_pts) {
+    vector<int>& ids, vector<cv::Point2f>& pts,
+    map<int, cv::Point2f>& cur_id_pts, map<int, cv::Point2f>& prev_id_pts) {
   vector<cv::Point2f> pts_velocity;
   cur_id_pts.clear();
   for (unsigned int i = 0; i < ids.size(); i++) {
@@ -580,11 +692,11 @@ vector<cv::Point2f> FeatureTracker::ptsVelocity(
   return pts_velocity;
 }
 
-void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
-                               vector<int> &curLeftIds,
-                               vector<cv::Point2f> &curLeftPts,
-                               vector<cv::Point2f> &curRightPts,
-                               map<int, cv::Point2f> &prevLeftPtsMap) {
+void FeatureTracker::drawTrack(const cv::Mat& imLeft, const cv::Mat& imRight,
+                               vector<int>& curLeftIds,
+                               vector<cv::Point2f>& curLeftPts,
+                               vector<cv::Point2f>& curRightPts,
+                               map<int, cv::Point2f>& prevLeftPtsMap) {
   // int rows = imLeft.rows;
   int cols = imLeft.cols;
   if (!imRight.empty() && stereo_cam)
@@ -631,7 +743,7 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
   // cv::resize(imCur2, imCur2Compress, cv::Size(cols, rows / 2));
 }
 
-void FeatureTracker::setPrediction(map<int, Eigen::Vector3d> &predictPts) {
+void FeatureTracker::setPrediction(map<int, Eigen::Vector3d>& predictPts) {
   hasPrediction = true;
   predict_pts.clear();
   predict_pts_debug.clear();
@@ -651,7 +763,7 @@ void FeatureTracker::setPrediction(map<int, Eigen::Vector3d> &predictPts) {
   }
 }
 
-void FeatureTracker::removeOutliers(set<int> &removePtsIds) {
+void FeatureTracker::removeOutliers(set<int>& removePtsIds) {
   std::set<int>::iterator itSet;
   vector<uchar> status;
   for (size_t i = 0; i < ids.size(); i++) {

@@ -41,10 +41,11 @@ except:
 bridge = CvBridge()  # CvBridge 用于 OpenCV 和 ROS Image 消息转换
 # --------------- 读取 camera.yaml ---------------
 import yaml
-
-yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_euroc/camera.yaml"
-# yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_kasit/camera.yaml"
+N_ITERATION = 90000
+# yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_euroc/camera.yaml"
+yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_kasit/camera.yaml"
 # yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_312/camera.yaml"
+# yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_M2DGR/camera.yaml"
 with open(yaml_path, 'r') as f:
     cfg = yaml.safe_load(f)
 
@@ -86,7 +87,8 @@ def odometry_callback(msg, GaussianModel, pipeline, train_test_exp, separate_sh)
     # 获取 Rotation
     orientation = msg.pose.pose.orientation
     quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
-    # print("quaternion Vector:", quaternion)
+    print("quaternion Vector:", quaternion)
+    # quaternion =[-0.456027,0.269982,-0.837423,0.133686]
 
     
     #########################xjl M2DGR数据集转换旋转矩阵
@@ -104,8 +106,8 @@ def odometry_callback(msg, GaussianModel, pipeline, train_test_exp, separate_sh)
     rotation_matrix_transposed = new_rotation_matrix.T# 计算新的旋转矩阵（R^T）
     # print("Transposed Rotation Matrix (R^T):", rotation_matrix_transposed)
     new_translation_vector = -rotation_matrix_transposed @ translation_vector + fb_bias # 计算新的位移向量（-R^T * T）
-    # print("New Translation Vector:", new_translation_vector)
-
+    print("New Translation Vector:", new_translation_vector)
+    # new_translation_vector = [4.40336, -3.48292, 7.93747]
     #手动设置
     resolution = (width, height)
     dummy_img = Img.new("RGB", resolution, (255, 255, 255))
@@ -264,15 +266,15 @@ def main():
     args = get_combined_args(parser)
     
     gaussians = GaussianModel(model.extract(args).sh_degree)
-    Scene(model.extract(args), gaussians, load_iteration=90000, shuffle=False)
+    Scene(model.extract(args), gaussians, load_iteration=N_ITERATION, shuffle=False)
 
     # 在订阅之前初始化
     safe_state(args.quiet)
     # 使用 functools.partial 来传递额外的参数到回调函数
     odometry_callback_with_args = partial(odometry_callback, GaussianModel=gaussians, pipeline=pipeline, train_test_exp = model.train_test_exp, separate_sh = SPARSE_ADAM_AVAILABLE)
     # 订阅位姿信息的话题名称 /odom，并将回调函数传递进去  发布渲染图像
-    # sub = rospy.Subscriber('/vins_estimator/camera_pose', Odometry, odometry_callback_with_args, queue_size = 100)
-    sub = rospy.Subscriber('/vins_estimator/gt_pose', Odometry, odometry_callback_with_args, queue_size = 10000)
+    sub = rospy.Subscriber('/vins_estimator/camera_pose', Odometry, odometry_callback_with_args, queue_size = 1000)
+    # sub = rospy.Subscriber('/vins_estimator/gt_pose', Odometry, odometry_callback_with_args, queue_size = 10000)
 
     # 初始化图像发布器
     # global image_pub, depth_pub

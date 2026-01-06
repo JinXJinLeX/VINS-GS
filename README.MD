@@ -63,3 +63,18 @@ We change the config for 3DGS, make sure you have them:
     map_initial_position_z: 0.0035285074208022336
     groundtruth_file: "/home/seu/xjl_work_space/VINS-Fusion/output/kasitVIO/square/square_head/groundtruth.txt" # path of groundtruth.txt for visualization
 ```
+### 3.3 Run
+Open a terminal and run:
+```
+    cd ~/catkin_ws
+    conda activate VINS-GS
+    source devel/setup.bash
+    roslaunch gaussian_map gaussian_map.launch
+```
+Then open a new terminal and run:
+```
+    cd ~/catkin_ws
+    conda activate VINS-GS
+    source devel/setup.bash
+    rosrun vins vins_node src/VINS-Fusion/config/3DGS_kasit/square_head.yaml 
+```

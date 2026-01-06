@@ -17,7 +17,7 @@ image_height: 480
    
 
 # Extrinsic parameter between IMU and Camera.
-estimate_extrinsic: 1   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
+estimate_extrinsic: 0   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
 
 body_T_cam0: !!opencv-matrix
@@ -67,5 +67,9 @@ load_previous_pose_graph: 0        # load and reuse previous pose graph; load fr
 pose_graph_save_path: "/home/seu/xjl_work_space/VINS-Fusion/output/" # save and load path
 save_image: 1                   # save image in pose graph for visualization prupose; you can close this function by setting 0 
 gaussian_map: 1
+sp_sg: 0
+orb: 1
 map_yaw: -37.5
-groundtruth_file: "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS/parking2_enu.txt" # load path
+map_pitch: 0
+map_roll: 0
+groundtruth_file: "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_M2DGR/parking2_enu.txt" # load path

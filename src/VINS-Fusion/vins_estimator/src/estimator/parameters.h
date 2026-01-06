@@ -64,8 +64,8 @@ extern double F_THRESHOLD;
 extern int SHOW_TRACK;
 extern int FLOW_BACK;
 // xjl
-extern int GAUSSIAN_MAP;
-extern double MAP_YAW, MAP_PITCH, MAP_ROLL;
+extern int GAUSSIAN_MAP,SP_SG,ORB;
+extern double MAP_YAW, MAP_PITCH, MAP_ROLL, MAP_X, MAP_Y, MAP_Z, MAP_W;
 extern Eigen::Vector3d MAP_POSITION;
 extern std::string GROUNDTRUTH;
 

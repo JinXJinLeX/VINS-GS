@@ -10,8 +10,11 @@ image0_topic: "/cam0/image_raw"
 image1_topic: "/cam1/image_raw"
 output_path: "/home/seu/xjl_work_space/VINS-Fusion/output/"
 
-cam0_calib: "cam0_pinhole.yaml"
-cam1_calib: "cam1_pinhole.yaml"
+# cam0_calib: "cam0_pinhole.yaml"
+# cam1_calib: "cam1_pinhole.yaml"
+
+cam0_calib: "cam0_mei.yaml"
+cam1_calib: "cam1_mei.yaml"
 image_width: 752
 image_height: 480
    
@@ -70,10 +73,16 @@ load_previous_pose_graph: 0        # load and reuse previous pose graph; load fr
 pose_graph_save_path: "/home/seu/xjl_work_space/VINS-Fusion/output/pose_graph/" # save and load path
 save_image: 1                   # save image in pose graph for visualization prupose; you can close this function by setting 0 
 gaussian_map: 1
-map_yaw: 150
+sp_sg: 1
+orb: 0
+map_yaw: 80
 map_pitch: 0
-map_roll: 180
-map_initial_position_x: 4.688319
-map_initial_position_y: -1.786938
-map_initial_position_z: 0.783338
-groundtruth_file: "/home/seu/xjl_work_space/VINS-Fusion/output/EuRoC/MH/MH_01/groundtruth.txt" # load path
+map_roll: 220
+map_x: -0.456027
+map_y: 0.269982
+map_z: -0.837423
+map_w: 0.133686
+map_initial_position_x: 4.697067
+map_initial_position_y: -1.7998
+map_initial_position_z: 0.759285
+groundtruth_file: "/home/seu/xjl_work_space/VINS-Fusion/output/EuRoC/MH/MH_02/groundtruth.txt" # load path
