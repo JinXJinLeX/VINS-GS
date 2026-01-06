@@ -1,4 +1,4 @@
-name: VINS-Fusion
+name: VINS-GS
 channels:
   - pytorch
   - conda-forge
