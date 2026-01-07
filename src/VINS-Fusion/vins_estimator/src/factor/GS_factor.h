@@ -74,7 +74,7 @@ struct GS_Factor {
     // residual[2] = (T(gs_pose[2]) - pose[2]) / T(0.1);
     residual[0] = (T(gs_pose[0]) - pose[0]) / T(0.01);
     residual[1] = (T(gs_pose[1]) - pose[1]) / T(0.01);
-    residual[2] = (T(gs_pose[2]) - pose[2]) / T(0.01);
+    residual[2] = (T(gs_pose[2]) - pose[2]) / T(0.1);
     // cout << gs_pose[0] << "," << gs_pose[1] << "," << gs_pose[2] << endl;
     // cout << pose[0] << "," << pose[1] << "," << pose[2] << endl;
     return true;

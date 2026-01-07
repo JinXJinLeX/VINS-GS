@@ -414,6 +414,9 @@ FeatureTracker::trackImage(GS::GS_RENDER& render, double _cur_time,
           // cout << "x1: " << x << " y1: " << y << " z1: " << z << std::endl;
           // 将当前帧中与渲染图像匹配的关键点添加到匹配点列表中
           cur_pts_matched.push_back(cur_points2D[i]);
+          if (conf > 1000) {
+            confidence = 1000;
+          }
           train_confidence.push_back(confidence);
         }
         i++;
@@ -445,7 +448,7 @@ FeatureTracker::trackImage(GS::GS_RENDER& render, double _cur_time,
         for (int idx : inliers) {
           double error = cv::norm(cur_pts_matched[idx] - projected_points[idx]);
           total_error += error;
-          if (error < 1.5)  // && train_confidence[idx] > 0.3
+          if (error < 1.5 && train_confidence[idx] > 0.3)  // && train_confidence[idx] > 0.3
           {
             Vector3d p_w = render.reprojection(
               render_points3D[idx].x, render_points3D[idx].y,

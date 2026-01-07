@@ -1,6 +1,6 @@
 #include "GS_factor.h"
 
-Eigen::Matrix2d GSProjectionFactor::sqrt_info=FOCAL_LENGTH / 0.1 * Eigen::Matrix2d::Identity();
+Eigen::Matrix2d GSProjectionFactor::sqrt_info=FOCAL_LENGTH / 1.0 * Eigen::Matrix2d::Identity();
 
 GSProjectionFactor::GSProjectionFactor(const Eigen::Vector3d &_pts_3D, const Eigen::Vector3d &_pts_2D, const double &_pts_conf)
 {
@@ -22,14 +22,14 @@ bool GSProjectionFactor::Evaluate(double const *const *parameters, double *resid
     Eigen::Vector3d pts_camera = qic.inverse() * (pts_imu - tic);
     Eigen::Map<Eigen::Vector2d> residual(residuals);
 
-    double dep = (pts_camera.z()) + 0.001;
+    double dep = abs(pts_camera.z()) + 0.001;
     residual = (pts_camera / dep).head<2>() - pts_2D.head<2>();
     // cout << "3dPoints:" << pts_camera.x() << "," << pts_camera.y() << "," << pts_camera.z()<< endl;
     // cout << "2dPoints:" << pts_2D.x() << "," << pts_2D.y() << "," << pts_2D.z() <<endl;
     // cout << "GSconf:" << pts_conf << endl;
 
-    residual = pts_conf * sqrt_info * residual;
-    // cout << "GS残差:" << residual.transpose() << endl;
+    residual = sqrt_info * residual;
+    // cout << "GS residual:" << residual.transpose() << endl;
     if (jacobians)
     {
         Eigen::Matrix3d R = Q.toRotationMatrix();
@@ -48,8 +48,13 @@ bool GSProjectionFactor::Evaluate(double const *const *parameters, double *resid
             jaco.leftCols<3>() = ric.transpose() * -R.transpose();
             jaco.rightCols<3>() = ric.transpose() * Utility::skewSymmetric(pts_imu);
 
-            jacobian_pose.leftCols<6>() = pts_conf * reduce * jaco;
+            // jacobian_pose.leftCols<6>() = pts_conf * reduce * jaco;
+            jacobian_pose.leftCols<6>() = reduce * jaco;
             jacobian_pose.rightCols<1>().setZero();
+            // cout<<reduce<<endl;
+            // cout <<ric<<endl;
+            // cout<< "dep: "<< dep << "pts_imu" << pts_imu.transpose()<<endl;
+            // cout<<jacobian_pose<<endl;
         }
         if (jacobians[1])
         {
@@ -59,8 +64,11 @@ bool GSProjectionFactor::Evaluate(double const *const *parameters, double *resid
             jaco.leftCols<3>() = -ric.transpose();
             jaco.rightCols<3>() = ric.transpose() * Utility::skewSymmetric(pts_camera);
 
-            jacobian_pose_ex.leftCols<6>() = pts_conf * reduce * jaco;
+            // jacobian_pose_ex.leftCols<6>() = pts_conf * reduce * jaco;
+            jacobian_pose_ex.leftCols<6>() = reduce * jaco;
             jacobian_pose_ex.rightCols<1>().setZero();
+            cout<<jacobian_pose_ex<<endl;
+
         }
     }
     return true;
