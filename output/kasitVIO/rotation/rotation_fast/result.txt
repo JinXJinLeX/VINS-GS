@@ -1,0 +1,20 @@
+rotation_fast:
+propose: rmse 0.060847, max 0.379203, min 0.004900
+VINS-Mono: -
+VINS-Fusion: rmse 0.059546, max 0.157627, min 0.009587
+rotation:
+propose: rmse 0.085502, max 0.391155, min 0.008942
+VINS-Mono: -
+VINS-Fusion: rmse 0.039282, max 0.110033, min 0.008847
+square:
+propose: rmse 0.084396, max 0.182597, min 0.019870
+VINS-Mono: rmse 0.096611, max 0.192706, min 0.012719
+VINS-Fusion: rmse 0.039161, max 0.169235, min 0.002465
+square_fast:
+propose: rmse 0.100775, max 0.253980, min 0.020259
+VINS-Mono: rmse 0.068334, max 0.162830, min 0.014732
+VINS-Fusion: rmse 0.059981, max 0.194772, min 0.003352
+square_head:
+propose: rmse 0.119904, max 0.269816, min 0.015370
+VINS-Mono: rmse 0.222467, max 0.402593, min 0.038081
+VINS-Fusion: rmse 0.097101, max 0.218994, min 0.005306
