@@ -566,7 +566,6 @@ FeatureTracker::trackImage(GS::GS_RENDER& render, double _cur_time,
       featureFrame[feature_id].emplace_back(camera_id, xyz_uv_velocity);
     }
   }
-
   // printf("feature track whole time %f\n", t_r.toc());
   return featureFrame;
 }

@@ -39,35 +39,32 @@ try:
 except:
     SPARSE_ADAM_AVAILABLE = False
 bridge = CvBridge()  # CvBridge 用于 OpenCV 和 ROS Image 消息转换
-# --------------- 读取 camera.yaml ---------------
 import yaml
-N_ITERATION = 90000
+
+# --------------- 读取 camera.yaml ---------------
 # yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_euroc/camera.yaml"
-yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_kasit/camera.yaml"
+# yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_kasit/camera.yaml"
 # yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_312/camera.yaml"
 # yaml_path = "/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_M2DGR/camera.yaml"
-with open(yaml_path, 'r') as f:
-    cfg = yaml.safe_load(f)
-
-# 初始化 ROS Publisher
-image_pub = None
-index = 0  # 全局变量
-# INITIAL = 0 # 渲染第一帧地图图像
-
-width  = int(cfg['image_width'])
-height = int(cfg['image_height'])
-fx = cfg['projection_parameters']['fx']
-fy = cfg['projection_parameters']['fy']
-# 根据针孔模型计算水平/垂直视场角（单位：弧度）
-fovx = 2 * np.arctan(width  / (2 * fx))
-fovy = 2 * np.arctan(height / (2 * fy))
 # ---------------------------------------------
 
 # 每次接收到Odometry消息时，渲染图像 
 def odometry_callback(msg, GaussianModel, pipeline, train_test_exp, separate_sh):
 
     global index  # 声明index为全局变量
+    with open(yaml_path, 'r') as f:
+        cfg = yaml.safe_load(f)
 
+    # 初始化 ROS Publisher
+    index = 0  # 全局变量
+
+    width  = int(cfg['image_width'])
+    height = int(cfg['image_height'])
+    fx = cfg['projection_parameters']['fx']
+    fy = cfg['projection_parameters']['fy']
+    # 根据针孔模型计算水平/垂直视场角（单位：弧度）
+    fovx = 2 * np.arctan(width  / (2 * fx))
+    fovy = 2 * np.arctan(height / (2 * fy))
     # custom_render_path = args.custom_render_path
     # if custom_render_path:
     #     render_path = custom_render_path
@@ -251,11 +248,17 @@ def image_callback(msg):
         rospy.logerr("CvBridgeError: {0}".format(e))
 
 def main():
+    global yaml_path
+    global model_path
+    global N_ITERATION
     rospy.init_node('gaussian_map', anonymous=True)
     parser = ArgumentParser(description="Testing script parameters")
 
     # 解析命令行参数，初始化 model, pipeline 和 args
     parser.add_argument("--iteration", default=-1, type=int)
+    N_ITERATION = rospy.get_param('~n_iteration')
+    yaml_path = rospy.get_param('~yaml_path')
+    model_path = rospy.get_param('~model_path')
     parser.add_argument("--skip_train", default="true")
     parser.add_argument("--skip_test", action="store_true")
     parser.add_argument("--quiet", action="store_true")
@@ -263,7 +266,8 @@ def main():
    
     model = ModelParams(parser, sentinel=True)
     pipeline = PipelineParams(parser)
-    args = get_combined_args(parser)
+    args = get_combined_args(parser,model_path=model_path)
+    # args = get_combined_args(parser)
     
     gaussians = GaussianModel(model.extract(args).sh_degree)
     Scene(model.extract(args), gaussians, load_iteration=N_ITERATION, shuffle=False)
@@ -277,7 +281,6 @@ def main():
     # sub = rospy.Subscriber('/vins_estimator/gt_pose', Odometry, odometry_callback_with_args, queue_size = 10000)
 
     # 初始化图像发布器
-    # global image_pub, depth_pub
     global image_with_pose_pub
 
     image_with_pose_pub = rospy.Publisher('/render',  image_with_pose, queue_size = 100)

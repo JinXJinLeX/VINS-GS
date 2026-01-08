@@ -1,21 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-
 <launch>
-
-  <!-- <param name="gaussian_map_path"       value="$(find gaussian_map)/gaussian_map"/> -->
-  <!-- <param name="use_cpu"           value="false" /> -->
-
-  <!-- Start yolov5 and ros wrapper -->
-  <!-- <node pkg="image_transport" type="republish" name="republish" args="compressed in:=/left_camera/image raw out:=/left_camera/image" output="screen" respawn="true" /> -->
+  <arg name="n_iteration" default="90000" />
+  <arg name="yaml_path" default="/home/seu/xjl_work_space/VINS-Fusion/src/VINS-Fusion/config/3DGS_kasit/camera.yaml" />
+  <arg name="model_path" default="/home/seu/xjl_work_space/gaussian-splatting/data/kasitVIO/square/square_head_infra1/output" />
   <node pkg="gaussian_map" type="gaussian_map.py" name="gaussian_map_node" output="screen" >
+    <param name="~n_iteration" value="$(arg n_iteration)" />
+    <param name="~yaml_path" value="$(arg yaml_path)" />
+    <param name="~model_path" value="$(arg model_path)" />
     <param name="skip_test"       value="false" />
     <param name="quiet"       value="false" />
   </node>
   <node name="rvizvisualisation" pkg="rviz" type="rviz" output="log" args="-d $(find vins)/../config/vins_rviz_config.rviz" />
-
-    <!-- Odometry publisher node -->
-  <!-- <node pkg="gaussian_map" type="odometry_publisher.py" name="odometry_publisher_node" output="screen">
-  </node>-->
-    
-
 </launch>

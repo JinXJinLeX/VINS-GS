@@ -101,14 +101,40 @@ class OptimizationParams(ParamGroup):
         self.optimizer_type = "default"
         super().__init__(parser, "Optimization Parameters")
 
-def get_combined_args(parser : ArgumentParser):
+def get_combined_args(parser : ArgumentParser, model_path=None):
     cmdlne_string = sys.argv[1:]
-    cmdlne_string[0]="-m"
-    cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/kasitVIO/square/square_head_infra1/output"
+    if model_path:
+        cmdlne_string = ["-m", model_path]
+    else:
+        cmdlne_string = ["-m", "/home/seu/xjl_work_space/gaussian-splatting/data/kasitVIO/square/square_head_infra1/output"]
+
+    # args_cmdline = parser.parse_args(cmdlne_string)
+
+    # try:
+    #     cfgfilepath = os.path.join(args_cmdline.model_path, "cfg_args")
+    #     print("Looking for config file in", cfgfilepath)
+    #     with open(cfgfilepath) as cfg_file:
+    #         print("Config file found: {}".format(cfgfilepath))
+    #         cfgfile_string = cfg_file.read()
+    # except (TypeError, FileNotFoundError):
+    #     print(f"Config file not found at {cfgfilepath}")
+    #     cfgfile_string = "Namespace()"
+    #     pass
+    
+    # args_cfgfile = eval(cfgfile_string)
+
+    # merged_dict = vars(args_cfgfile).copy()
+    # for k,v in vars(args_cmdline).items():
+    #     if v != None:
+    #         merged_dict[k] = v
+
+    # cmdlne_string[0]="-m"
+    # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/kasitVIO/square/square_head_infra1/output"
     # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/EuRoC/MH/output"
     # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/kasitVIO/square/square_head/output"
     # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/M2DGRP/parking2/output"
     # cmdlne_string[1]="/home/seu/xjl_work_space/gaussian-splatting/data/seu/312_copy/output"
+
     cfgfile_string = "Namespace()"
     args_cmdline = parser.parse_args(cmdlne_string)
 
