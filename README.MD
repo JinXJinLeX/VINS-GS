@@ -58,13 +58,20 @@ We change the config for 3DGS, make sure you have them:
     map_yaw: 0 # initial orientation
     map_pitch: 0
     map_roll: 0
-    map_initial_position_x: -0.130694947783094503 #initial position
-    map_initial_position_y: -0.01279194876007592
-    map_initial_position_z: 0.0035285074208022336
+    map_initial_position_x: -0.131 #initial position
+    map_initial_position_y: -0.013
+    map_initial_position_z: 0.004
     groundtruth_file: "/home/seu/xjl_work_space/VINS-Fusion/output/kasitVIO/square/square_head/groundtruth.txt" # path of groundtruth.txt for visualization
 ```
 ### 3.3 Run
-Open a terminal and run:
+You can run VINS-GS by:
+```
+    cd ~/catkin_ws
+    chmod +x launch_vins_gaussian.sh
+    ./launch_vins_gaussian.sh
+```
+
+Or open a terminal and run:
 ```
     cd ~/catkin_ws
     conda activate VINS-GS
@@ -78,3 +85,4 @@ Then open a new terminal and run:
     source devel/setup.bash
     rosrun vins vins_node src/VINS-Fusion/config/3DGS_kasit/square_head.yaml 
 ```
+For now, the superpoint and superglue are not stable, so set orb to 1.
